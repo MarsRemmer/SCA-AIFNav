@@ -46,7 +46,7 @@ def test_action_twelve_is_stationary(motion_set):
         (11, 345.0),
     ],
 )
-def test_direction_centers_match_v5_baseline(
+def test_direction_centers_match_baseline_baseline(
     motion_set,
     action_id,
     expected_center_deg,

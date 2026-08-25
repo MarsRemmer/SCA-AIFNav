@@ -1,4 +1,4 @@
-"""Tests for V5-compatible action-based spatial projection."""
+"""Tests for baseline-compatible action-based spatial projection."""
 
 import math
 
@@ -185,7 +185,7 @@ def test_existing_place_in_action_sector_is_reused(
     assert result == existing
 
 
-def test_v5_uses_first_matching_place_not_nearest(
+def test_baseline_uses_first_matching_place_not_nearest(
     motion_set,
 ):
     memory = BaselinePlaceMemory(

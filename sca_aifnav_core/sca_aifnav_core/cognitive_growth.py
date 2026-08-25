@@ -1,4 +1,4 @@
-"""Cognitive-map growth operations for the AIMAPP V5 baseline."""
+"""Cognitive-map growth operations for the reference baseline baseline."""
 
 from dataclasses import dataclass
 import math
@@ -15,7 +15,7 @@ from sca_aifnav_core.spatial_memory import BaselinePlaceMemory
 
 @dataclass(frozen=True)
 class HypotheticalStateResult:
-    """Describe one V5 hypothetical cognitive-state projection."""
+    """Describe one baseline hypothetical cognitive-state projection."""
 
     position: Point2D
     place_id: int
@@ -31,9 +31,9 @@ def node_step_distance(
     state_step: int = 1,
 ) -> float:
     """
-    Return the V5 distance used for a cognitive node step.
+    Return the baseline distance used for a cognitive node step.
 
-    AIMAPP V5 uses:
+    reference baseline uses:
         influence_radius * state_step + robot_dimension / 2
     """
     if not math.isfinite(influence_radius):
@@ -86,7 +86,7 @@ def create_hypothetical_state(
     reference_belief=None,
 ) -> HypotheticalStateResult:
     """
-    Create or reuse one reachable V5 hypothetical cognitive state.
+    Create or reuse one reachable baseline hypothetical cognitive state.
 
     This function assumes the action direction is reachable. Obstacle
     rejection and transition learning are handled by later layers.
@@ -174,7 +174,7 @@ def _align_belief_dimension(
     belief: np.ndarray,
     num_states: int,
 ) -> np.ndarray:
-    """Extend a previous V5 belief with zero-weight new states."""
+    """Extend a previous baseline belief with zero-weight new states."""
     if belief.ndim != 1:
         raise ValueError(
             "belief must be one-dimensional"

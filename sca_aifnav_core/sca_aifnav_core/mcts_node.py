@@ -1,4 +1,4 @@
-"""Search-tree node primitives for the AIMAPP V5 MCTS baseline."""
+"""Search-tree node primitives for the reference baseline MCTS baseline."""
 
 import math
 
@@ -7,7 +7,7 @@ DEFAULT_UCB_EXPLORATION = 1.41
 
 
 class SearchTreeNode:
-    """One node in the V5 Monte Carlo search tree."""
+    """One node in the baseline Monte Carlo search tree."""
 
     def __init__(
         self,
@@ -21,7 +21,7 @@ class SearchTreeNode:
     ) -> None:
         self.place_id = place_id
 
-        # AIMAPP also aliases pose_id as the node identifier.
+        # The reference implementation also aliases pose_id as the node identifier.
         self.id = place_id
 
         self.state_belief = state_belief
@@ -58,9 +58,9 @@ class SearchTreeNode:
         use_state_information_gain: bool = True,
     ) -> float:
         """
-        Compute AIMAPP V5's UCB1 node-selection score.
+        Compute reference baseline's UCB1 node-selection score.
 
-        In V5, the exploitation term is enabled by the utility flag and
+        In baseline, the exploitation term is enabled by the utility flag and
         the UCB exploration term is enabled by the state-info-gain flag.
         """
         if self.visit_count == 0:
@@ -98,9 +98,9 @@ class SearchTreeNode:
 
     def is_fully_expanded(self) -> bool:
         """
-        Reproduce V5's expansion-status check.
+        Reproduce the baseline's expansion-status check.
 
-        Despite the method name, V5 considers a node expanded once its
+        Despite the method name, baseline considers a node expanded once its
         possible-actions field exists and it has at least one child.
         """
         return (
@@ -118,7 +118,7 @@ class SearchTreeNode:
         use_utility: bool = True,
         use_state_information_gain: bool = True,
     ):
-        """Return the child with the largest V5 UCB1 score."""
+        """Return the child with the largest baseline UCB1 score."""
         best_score = -float("inf")
         best_child = None
 
@@ -131,7 +131,7 @@ class SearchTreeNode:
                 ),
             )
 
-            # V5 uses strictly greater-than here. Therefore ties keep
+            # baseline uses strictly greater-than here. Therefore ties keep
             # the first inserted child.
             if score > best_score:
                 best_score = score

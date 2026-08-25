@@ -1,4 +1,4 @@
-"""Observation-model learning for the AIMAPP V5 baseline."""
+"""Observation-model learning for the reference baseline baseline."""
 
 import math
 
@@ -21,7 +21,7 @@ def learn_sensory_observation(
     """
     Update the sensory pA/A distribution using one observation.
 
-    AIMAPP V5 uses a Dirichlet pseudo-count update with learning rate 5.
+    reference baseline uses a Dirichlet pseudo-count update with learning rate 5.
     Only entries with existing non-zero support in A may be learned.
     """
     belief = _validated_belief(
@@ -135,7 +135,7 @@ def learn_multimodal_observation(
     state_belief: np.ndarray,
     learning_rate: float = OBSERVATION_LEARNING_RATE,
 ) -> None:
-    """Apply the same V5 pA update to both observation modalities."""
+    """Apply the same baseline pA update to both observation modalities."""
     learn_sensory_observation(
         model=model,
         observation_id=sensory_observation,

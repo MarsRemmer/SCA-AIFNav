@@ -1,4 +1,4 @@
-"""Tests for the dynamic V5-compatible generative model."""
+"""Tests for the dynamic baseline-compatible generative model."""
 
 import numpy as np
 import pytest
@@ -25,7 +25,7 @@ def test_initial_model_dimensions():
     )
 
 
-def test_runtime_sensory_likelihood_matches_v5():
+def test_runtime_sensory_likelihood_matches_baseline():
     model = BaselineGenerativeModel()
 
     np.testing.assert_allclose(
@@ -39,7 +39,7 @@ def test_runtime_sensory_likelihood_matches_v5():
     )
 
 
-def test_runtime_place_likelihood_matches_v5():
+def test_runtime_place_likelihood_matches_baseline():
     model = BaselineGenerativeModel()
 
     np.testing.assert_allclose(

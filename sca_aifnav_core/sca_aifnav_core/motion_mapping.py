@@ -14,7 +14,7 @@ def target_action(
     """
     Return the baseline action pointing toward a target.
 
-    AIMAPP V5 defines directional actions in the global map frame.
+    reference baseline defines directional actions in the global map frame.
     The robot yaw therefore does not rotate the cognitive action sectors.
     """
     global_bearing = pose.global_bearing_to(target)
@@ -40,7 +40,7 @@ def projected_target(
     Project a point along one baseline action in the global map frame.
 
     Directional action sectors are fixed relative to the map coordinates,
-    matching the AIMAPP V5 cognitive motion model.
+    matching the reference baseline cognitive motion model.
     """
     if not math.isfinite(distance):
         raise ValueError("distance must be finite")

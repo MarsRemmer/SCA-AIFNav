@@ -1,4 +1,4 @@
-"""Tests for V5-compatible one-step action evaluation."""
+"""Tests for baseline-compatible one-step action evaluation."""
 
 import numpy as np
 import pytest

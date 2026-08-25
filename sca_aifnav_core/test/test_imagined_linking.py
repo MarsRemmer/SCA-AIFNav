@@ -1,4 +1,4 @@
-"""Tests for V5-compatible imagined cognitive links."""
+"""Tests for baseline-compatible imagined cognitive links."""
 
 import numpy as np
 import pytest
@@ -46,7 +46,7 @@ def origin_state():
     )
 
 
-def test_imagined_transition_rates_match_v5():
+def test_imagined_transition_rates_match_baseline():
     assert IMAGINED_DIRECT_RATE == pytest.approx(
         5.0
     )
@@ -118,7 +118,7 @@ def test_first_imagined_link_reverse_action_is_six(
     assert result.reverse_action_id == 6
 
 
-def test_imagined_direct_pB_matches_v5_rate(
+def test_imagined_direct_pB_matches_baseline_rate(
     motion_set,
     memory,
     model,
@@ -170,7 +170,7 @@ def test_imagined_direct_link_becomes_dominant(
     ] > 0.90
 
 
-def test_imagined_reverse_pB_matches_v5_rate(
+def test_imagined_reverse_pB_matches_baseline_rate(
     motion_set,
     memory,
     model,

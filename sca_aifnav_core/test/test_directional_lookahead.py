@@ -1,4 +1,4 @@
-"""Tests for V5-compatible directional cognitive lookahead."""
+"""Tests for baseline-compatible directional cognitive lookahead."""
 
 import math
 
@@ -47,7 +47,7 @@ def origin_state():
     )
 
 
-def test_default_lookahead_depth_matches_v5():
+def test_default_lookahead_depth_matches_baseline():
     assert DEFAULT_LOOKAHEAD_STEPS == 3
 
 

@@ -1,4 +1,4 @@
-"""Tests for the assembled V5 transition-node update."""
+"""Tests for the assembled baseline transition-node update."""
 
 import math
 

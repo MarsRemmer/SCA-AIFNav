@@ -1,4 +1,4 @@
-"""Tests for V5-compatible lateral imagined links."""
+"""Tests for baseline-compatible lateral imagined links."""
 
 import numpy as np
 import pytest
@@ -31,7 +31,7 @@ def memory():
 
 
 def grown_model():
-    """Return a V5 model expanded to three states."""
+    """Return a baseline model expanded to three states."""
     model = BaselineGenerativeModel()
 
     model.register_place_observation(1)
@@ -60,7 +60,7 @@ def target_belief():
     )
 
 
-def test_lateral_rates_match_v5():
+def test_lateral_rates_match_baseline():
     assert LATERAL_DIRECT_RATE == pytest.approx(
         1.0
     )
@@ -180,7 +180,7 @@ def test_positive_lateral_link_becomes_dominant(
     ] > 0.90
 
 
-def test_negative_lateral_link_hits_v5_floor(
+def test_negative_lateral_link_hits_baseline_floor(
     motion_set,
     memory,
 ):

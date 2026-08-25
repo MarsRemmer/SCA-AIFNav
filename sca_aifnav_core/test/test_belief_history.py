@@ -1,4 +1,4 @@
-"""Tests for V5-compatible belief history."""
+"""Tests for baseline-compatible belief history."""
 
 import numpy as np
 import pytest

@@ -1,4 +1,4 @@
-"""Imagined cognitive links for the AIMAPP V5 baseline."""
+"""Imagined cognitive links for the reference baseline baseline."""
 
 from dataclasses import dataclass
 
@@ -23,7 +23,7 @@ IMAGINED_REVERSE_RATE = 3.0
 
 @dataclass(frozen=True)
 class ImaginedLinkResult:
-    """Describe one directly imagined V5 cognitive transition."""
+    """Describe one directly imagined baseline cognitive transition."""
 
     hypothetical: HypotheticalStateResult
     reverse_action_id: int
@@ -43,7 +43,7 @@ def create_and_link_hypothetical_state(
     """
     Create or reuse a ghost state and learn its direct imagined link.
 
-    This function represents the positive direct-link branch of AIMAPP V5.
+    This function represents the positive direct-link branch of reference baseline.
     Obstacle gating is intentionally handled by a later layer.
     """
     if reference_belief is None:
@@ -91,7 +91,7 @@ def _align_belief_dimension(
     belief: np.ndarray,
     num_states: int,
 ) -> np.ndarray:
-    """Pad an older belief with zeros after V5 model growth."""
+    """Pad an older belief with zeros after baseline model growth."""
     result = np.asarray(
         belief,
         dtype=float,

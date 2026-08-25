@@ -1,4 +1,4 @@
-"""Dynamic generative-model state for the SCA-AIFNav V5 baseline."""
+"""Dynamic generative-model state for the SCA-AIFNav baseline."""
 
 import numpy as np
 
@@ -15,14 +15,14 @@ INITIAL_UNKNOWN_LIKELIHOOD = 0.01
 
 class BaselineGenerativeModel:
     """
-    Store the dynamic probabilistic model used by the V5 baseline.
+    Store the dynamic probabilistic model used by the reference baseline.
 
     The model contains two observation modalities:
 
     - sensory observations;
     - discrete cognitive-place observations.
 
-    The constructor reproduces the model state after AIMAPP V5
+    The constructor reproduces the model state after reference baseline
     initialization has associated the starting observations with state 0.
     """
 
@@ -36,7 +36,7 @@ class BaselineGenerativeModel:
         initial_place_observation: int = 0,
         stationary_action_id: int = 12,
     ) -> None:
-        """Initialize the V5-compatible runtime generative model."""
+        """Initialize the baseline-compatible runtime generative model."""
         self.sensory_likelihood = create_likelihood_table(
             sensory_observations,
             num_states,
@@ -123,7 +123,7 @@ class BaselineGenerativeModel:
         prior=None,
     ) -> np.ndarray:
         """
-        Infer a posterior over the single V5 hidden-state factor.
+        Infer a posterior over the single baseline hidden-state factor.
 
         Observation likelihoods from the supplied modalities are multiplied
         with the prior and normalized.
@@ -231,7 +231,7 @@ class BaselineGenerativeModel:
         Associate a discrete place observation with a hidden state.
 
         When the place index exceeds the current model size, both hidden
-        state and place-observation dimensions expand using V5 rules.
+        state and place-observation dimensions expand using baseline rules.
 
         Return True when the hidden-state dimension grows.
         """
@@ -279,7 +279,7 @@ class BaselineGenerativeModel:
         sensory_observation: int,
         place_observation: int,
     ) -> None:
-        """Reproduce AIMAPP V5 likelihood initialization."""
+        """Reproduce reference baseline likelihood initialization."""
         self.sensory_likelihood[:] = (
             INITIAL_UNKNOWN_LIKELIHOOD
         )
@@ -352,7 +352,7 @@ class BaselineGenerativeModel:
         ] = np.eye(self.num_states)
 
     def enforce_stationary_transition(self) -> None:
-        """Publicly restore the V5 stationary transition."""
+        """Publicly restore the baseline stationary transition."""
         self._enforce_stationary_transition()
 
     def _validate_stationary_action(self) -> None:

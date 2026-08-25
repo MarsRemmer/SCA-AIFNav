@@ -1,4 +1,4 @@
-"""Observation and state preferences for the AIMAPP V5 baseline."""
+"""Observation and state preferences for the reference baseline baseline."""
 
 from dataclasses import dataclass
 import math
@@ -20,7 +20,7 @@ NO_PREFERENCE = -1
 
 @dataclass(frozen=True)
 class PreferenceSnapshot:
-    """Immutable summary of the current V5 preferences."""
+    """Immutable summary of the current baseline preferences."""
 
     sensory: np.ndarray
     place: np.ndarray
@@ -30,7 +30,7 @@ class PreferenceSnapshot:
 
 class BaselinePreferenceState:
     """
-    Store V5 observation preferences C and preferred states Cs.
+    Store baseline observation preferences C and preferred states Cs.
 
     C expresses desired observations. Cs maps those preferences back into
     hidden-state space using the current observation model A.
@@ -67,7 +67,7 @@ class BaselinePreferenceState:
         place_observation: int = NO_PREFERENCE,
         preference_weight: float = 1.0,
     ) -> PreferenceSnapshot:
-        """Set V5 observation preferences and infer preferred states."""
+        """Set baseline observation preferences and infer preferred states."""
         _validate_preference_id(
             sensory_observation,
             "sensory_observation",
@@ -226,7 +226,7 @@ def _preferred_state_vector(
     model: BaselineGenerativeModel,
     preferred_observations: Tuple[int, int],
 ) -> np.ndarray:
-    """Map V5 preferred observations into hidden-state preference Cs."""
+    """Map baseline preferred observations into hidden-state preference Cs."""
     recurrence = {}
 
     modalities = (
@@ -283,9 +283,9 @@ def _ensure_preference_observation_capacity(
     place_observation: int,
 ) -> None:
     """
-    Reproduce the A/pA preparation performed by V5 update_preference.
+    Reproduce the A/pA preparation performed by baseline update_preference.
 
-    V5 calls update_A_dim_given_obs with null_probability=False and then
+    baseline calls update_A_dim_given_obs with null_probability=False and then
     rebuilds the Dirichlet concentrations from ones.
     """
     sensory_addition = 0
@@ -330,7 +330,7 @@ def _ensure_preference_observation_capacity(
             )
         )
 
-    # V5 recreates pA inside update_A_dim_given_obs.
+    # baseline recreates pA inside update_A_dim_given_obs.
     model.sensory_concentration = np.ones_like(
         model.sensory_likelihood
     )
@@ -344,7 +344,7 @@ def _validate_preference_id(
     observation_id: int,
     name: str,
 ) -> None:
-    """Validate a V5 observation preference identifier."""
+    """Validate a baseline observation preference identifier."""
     if (
         isinstance(observation_id, bool)
         or not isinstance(observation_id, int)

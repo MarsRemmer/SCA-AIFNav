@@ -1,4 +1,4 @@
-"""Tests for V5-compatible observation learning."""
+"""Tests for baseline-compatible observation learning."""
 
 import numpy as np
 import pytest
@@ -14,7 +14,7 @@ from sca_aifnav_core.observation_learning import (
 )
 
 
-def test_observation_learning_rate_matches_v5():
+def test_observation_learning_rate_matches_baseline():
     assert OBSERVATION_LEARNING_RATE == pytest.approx(
         5.0
     )

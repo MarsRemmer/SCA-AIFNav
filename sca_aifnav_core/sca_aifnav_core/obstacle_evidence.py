@@ -1,4 +1,4 @@
-"""Obstacle-driven transition evidence for the AIMAPP V5 baseline."""
+"""Obstacle-driven transition evidence for the reference baseline baseline."""
 
 import numpy as np
 
@@ -30,7 +30,7 @@ def reinforce_blocked_self_loop(
     """
     Reinforce staying in the current state when an action is blocked.
 
-    AIMAPP V5 uses a +10 transition update for the direct first-step
+    reference baseline uses a +10 transition update for the direct first-step
     obstacle case.
     """
     _validate_directional_action(
@@ -57,7 +57,7 @@ def discourage_known_unreachable_link(
     """
     Reduce belief in a known transition that proved unreachable.
 
-    V5 applies -10 in the direct direction and -7 in the reverse
+    baseline applies -10 in the direct direction and -7 in the reverse
     direction.
     """
     _validate_directional_action(

@@ -1,4 +1,4 @@
-"""Tests for the assembled V5 baseline learning step."""
+"""Tests for the assembled reference baseline learning step."""
 
 import numpy as np
 

@@ -1,4 +1,4 @@
-"""Directional multi-step cognitive lookahead for AIMAPP V5."""
+"""Directional multi-step cognitive lookahead for reference baseline."""
 
 from dataclasses import dataclass
 import math
@@ -41,7 +41,7 @@ class LookaheadNode:
 
 @dataclass(frozen=True)
 class DirectionalLookaheadResult:
-    """Summarize one V5 directional lookahead chain."""
+    """Summarize one baseline directional lookahead chain."""
 
     action_id: int
     nodes: Tuple[LookaheadNode, ...]
@@ -63,7 +63,7 @@ def grow_directional_lookahead(
     reference_belief=None,
 ) -> DirectionalLookaheadResult:
     """
-    Grow one V5 cognitive chain along a directional action.
+    Grow one baseline cognitive chain along a directional action.
 
     Obstacle thresholds grow with state_step, while every incremental
     spatial projection remains one base node step from the previous node.
@@ -235,7 +235,7 @@ def _align_belief_dimension(
     belief: np.ndarray,
     num_states: int,
 ) -> np.ndarray:
-    """Pad a V5 belief with zero-weight newly created states."""
+    """Pad a baseline belief with zero-weight newly created states."""
     result = np.asarray(
         belief,
         dtype=float,

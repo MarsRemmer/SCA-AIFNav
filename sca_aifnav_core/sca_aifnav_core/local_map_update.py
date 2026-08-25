@@ -1,4 +1,4 @@
-"""First-layer local cognitive-map update for AIMAPP V5."""
+"""First-layer local cognitive-map update for reference baseline."""
 
 from dataclasses import dataclass
 import math
@@ -44,7 +44,7 @@ class FirstLayerActionUpdate:
 
 @dataclass(frozen=True)
 class FirstLayerMapUpdate:
-    """Summarize one complete first-layer V5 directional sweep."""
+    """Summarize one complete first-layer baseline directional sweep."""
 
     actions: Tuple[FirstLayerActionUpdate, ...]
     direct_links_updated: int
@@ -60,7 +60,7 @@ def update_first_layer_local_map(
     robot_dimension: float = 0.25,
 ) -> FirstLayerMapUpdate:
     """
-    Update the first layer of the local V5 cognitive map.
+    Update the first layer of the local baseline cognitive map.
 
     All directional actions are inspected in order. Obstacle information
     determines whether the model reinforces a self-loop or creates/reuses
@@ -341,7 +341,7 @@ def _existing_projected_place(
     motion_set: BaselineMotionSet,
 ) -> Optional[int]:
     """
-    Return the place matching V5's action projection without creating it.
+    Return the place matching the baseline's action projection without creating it.
 
     The action projection is rounded to two decimals before fixed-radius
     place matching, matching determine_next_pose behavior.
@@ -396,7 +396,7 @@ def _distance_is_clear(
     distance: float,
     required_distance: float,
 ) -> bool:
-    """Return whether V5 treats an obstacle range as reachable."""
+    """Return whether baseline treats an obstacle range as reachable."""
     return (
         not math.isnan(distance)
         and distance > required_distance

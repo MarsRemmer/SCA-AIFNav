@@ -1,4 +1,4 @@
-"""Probability-table utilities matching the AIMAPP V5 baseline."""
+"""Probability-table utilities matching the reference baseline baseline."""
 
 
 import numpy as np
@@ -12,7 +12,7 @@ def create_likelihood_table(
     num_observations: int,
     num_states: int,
 ) -> np.ndarray:
-    """Create a uniform V5 observation likelihood table."""
+    """Create a uniform baseline observation likelihood table."""
     _validate_positive_count(
         num_observations,
         "num_observations",
@@ -33,7 +33,7 @@ def create_transition_table(
     num_states: int,
     num_actions: int,
 ) -> np.ndarray:
-    """Create a uniform V5 transition table."""
+    """Create a uniform baseline transition table."""
     _validate_positive_count(
         num_states,
         "num_states",
@@ -61,10 +61,10 @@ def expand_likelihood_table(
     null_probability: bool = True,
 ) -> np.ndarray:
     """
-    Expand one V5 observation likelihood table.
+    Expand one baseline observation likelihood table.
 
     Existing entries are preserved exactly. Newly introduced entries use
-    the V5 small unknown weight when null_probability is enabled.
+    the baseline small unknown weight when null_probability is enabled.
     """
     _validate_likelihood_table(table)
     _validate_non_negative_count(
@@ -120,10 +120,10 @@ def expand_transition_table(
     alter_weights: bool = True,
 ) -> np.ndarray:
     """
-    Expand one V5 transition table with additional hidden states.
+    Expand one baseline transition table with additional hidden states.
 
     Existing entries are copied first. When alter_weights is enabled,
-    unexplored uniform entries are replaced by the V5 weight 0.05.
+    unexplored uniform entries are replaced by the baseline weight 0.05.
     """
     _validate_transition_table(table)
     _validate_non_negative_count(

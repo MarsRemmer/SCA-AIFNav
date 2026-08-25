@@ -1,4 +1,4 @@
-"""Tests for AIMAPP V5-compatible probability tables."""
+"""Tests for baseline-compatible probability tables."""
 
 import numpy as np
 import pytest
@@ -92,7 +92,7 @@ def test_likelihood_state_expansion_preserves_old_values():
     )
 
 
-def test_new_likelihood_state_uses_v5_unknown_weight():
+def test_new_likelihood_state_uses_baseline_unknown_weight():
     table = create_likelihood_table(
         num_observations=2,
         num_states=2,
@@ -163,7 +163,7 @@ def test_transition_expansion_preserves_nonuniform_old_values():
     )
 
 
-def test_uniform_old_transition_entries_become_v5_low_weight():
+def test_uniform_old_transition_entries_become_baseline_low_weight():
     table = create_transition_table(
         num_states=2,
         num_actions=13,

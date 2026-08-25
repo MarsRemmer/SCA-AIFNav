@@ -1,4 +1,4 @@
-"""Tests for V5-compatible transition learning."""
+"""Tests for baseline-compatible transition learning."""
 
 import numpy as np
 import pytest
@@ -18,7 +18,7 @@ from sca_aifnav_core.transition_learning import (
 )
 
 
-def test_v5_learning_constants():
+def test_baseline_learning_constants():
     assert DIRECT_TRANSITION_RATE == pytest.approx(
         10.0
     )
@@ -138,7 +138,7 @@ def test_other_action_concentrations_are_unchanged():
     )
 
 
-def test_negative_learning_uses_v5_floor():
+def test_negative_learning_uses_baseline_floor():
     model = BaselineGenerativeModel()
 
     learn_transition(

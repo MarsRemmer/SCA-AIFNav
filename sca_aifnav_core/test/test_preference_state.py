@@ -1,4 +1,4 @@
-"""Tests for V5-compatible observation and state preferences."""
+"""Tests for baseline-compatible observation and state preferences."""
 
 import numpy as np
 import pytest
@@ -13,7 +13,7 @@ from sca_aifnav_core.preference_state import (
 )
 
 
-def test_preference_constants_match_v5():
+def test_preference_constants_match_baseline():
     assert NO_PREFERENCE == -1
 
     assert PREFERRED_STATE_THRESHOLD == pytest.approx(
@@ -164,7 +164,7 @@ def test_disagreeing_modalities_create_tied_states():
     )
 
 
-def test_setting_preference_resets_pA_like_v5():
+def test_setting_preference_resets_pA_like_baseline():
     model = BaselineGenerativeModel()
 
     model.sensory_concentration[

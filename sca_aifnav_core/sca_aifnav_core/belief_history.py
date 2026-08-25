@@ -1,10 +1,10 @@
-"""State-belief history for the AIMAPP V5 baseline."""
+"""State-belief history for the reference baseline baseline."""
 
 import numpy as np
 
 
 class BeliefHistory:
-    """Store saved physical-state beliefs in V5 order."""
+    """Store saved physical-state beliefs in baseline order."""
 
     def __init__(
         self,
@@ -28,7 +28,7 @@ class BeliefHistory:
         self,
         belief: np.ndarray,
     ) -> None:
-        """Append one saved V5 state inference."""
+        """Append one saved baseline state inference."""
         result = np.asarray(
             belief,
             dtype=float,

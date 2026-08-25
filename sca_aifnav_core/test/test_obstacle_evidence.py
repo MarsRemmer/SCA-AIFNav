@@ -1,4 +1,4 @@
-"""Tests for V5-compatible obstacle transition evidence."""
+"""Tests for baseline-compatible obstacle transition evidence."""
 
 import numpy as np
 import pytest
@@ -33,7 +33,7 @@ def motion_set():
     return BaselineMotionSet()
 
 
-def test_obstacle_learning_constants_match_v5():
+def test_obstacle_learning_constants_match_baseline():
     assert BLOCKED_SELF_LOOP_RATE == pytest.approx(
         10.0
     )

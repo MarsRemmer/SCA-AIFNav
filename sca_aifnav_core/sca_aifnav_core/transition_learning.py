@@ -1,4 +1,4 @@
-"""Transition learning rules for the AIMAPP V5 baseline."""
+"""Transition learning rules for the reference baseline baseline."""
 
 import math
 
@@ -21,7 +21,7 @@ def learn_transition(
     learning_rate: float,
 ) -> np.ndarray:
     """
-    Apply one V5 Dirichlet transition update.
+    Apply one baseline Dirichlet transition update.
 
     The current and previous state beliefs form an outer-product evidence
     matrix. Evidence is added to pB for the selected action, concentrations
@@ -104,7 +104,7 @@ def learn_bidirectional_transition(
     reverse_rate: float = REVERSE_TRANSITION_RATE,
 ) -> int:
     """
-    Learn one transition and its reverse using V5 baseline rates.
+    Learn one transition and its reverse using reference baseline rates.
 
     Return the reverse action identifier.
     """

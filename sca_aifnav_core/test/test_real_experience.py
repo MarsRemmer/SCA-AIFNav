@@ -1,4 +1,4 @@
-"""Tests for V5-compatible real experience updates."""
+"""Tests for baseline-compatible real experience updates."""
 
 import numpy as np
 import pytest

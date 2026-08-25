@@ -1,4 +1,4 @@
-"""Spatial place memory for the SCA-AIFNav V5 baseline."""
+"""Spatial place memory for the SCA-AIFNav baseline."""
 
 import math
 from typing import List, Optional, Tuple

@@ -1,4 +1,4 @@
-"""Tests for V5-compatible MCTS search-tree nodes."""
+"""Tests for baseline-compatible MCTS search-tree nodes."""
 
 import math
 
@@ -34,7 +34,7 @@ def test_default_ucb_parameter_matches_source():
     )
 
 
-def test_node_initial_statistics_match_v5():
+def test_node_initial_statistics_match_baseline():
     node = make_node(
         place_id=3,
         initial_reward=2.5,
@@ -186,7 +186,7 @@ def test_ucb_with_both_terms_disabled_is_zero():
     )
 
 
-def test_v5_expansion_flag_requires_only_one_child():
+def test_baseline_expansion_flag_requires_only_one_child():
     node = make_node(
         possible_actions=[
             0,

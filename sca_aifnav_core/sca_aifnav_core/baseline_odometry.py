@@ -1,4 +1,4 @@
-"""Cognitive odometry state used by the SCA-AIFNav V5 baseline."""
+"""Cognitive odometry state used by the SCA-AIFNav baseline."""
 
 from dataclasses import dataclass
 import math
@@ -60,7 +60,7 @@ class CognitiveOdomState:
 
 class BaselineOdomTracker:
     """
-    Track cognitive odometry following AIMAPP V5 behavior.
+    Track cognitive odometry following reference baseline behavior.
 
     Updating from a position computes the direction of displacement from
     the previous position and stores that direction in [0, 2*pi).

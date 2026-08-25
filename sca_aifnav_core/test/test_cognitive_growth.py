@@ -1,4 +1,4 @@
-"""Tests for V5-compatible cognitive-map growth."""
+"""Tests for baseline-compatible cognitive-map growth."""
 
 import numpy as np
 import pytest
@@ -45,7 +45,7 @@ def origin_state():
     )
 
 
-def test_first_node_step_distance_matches_v5():
+def test_first_node_step_distance_matches_baseline():
     assert node_step_distance(
         influence_radius=0.5,
         robot_dimension=0.25,
@@ -53,7 +53,7 @@ def test_first_node_step_distance_matches_v5():
     ) == pytest.approx(0.625)
 
 
-def test_second_node_step_distance_matches_v5():
+def test_second_node_step_distance_matches_baseline():
     assert node_step_distance(
         influence_radius=0.5,
         robot_dimension=0.25,
@@ -80,7 +80,7 @@ def test_first_action_zero_creates_place_one(
     assert len(memory) == 2
 
 
-def test_first_ghost_uses_v5_rounded_position(
+def test_first_ghost_uses_baseline_rounded_position(
     motion_set,
     memory,
     model,
@@ -250,7 +250,7 @@ def test_place_two_expands_model_to_three_states(
     )
 
 
-def test_place_two_posterior_matches_v5_low_weight_behavior(
+def test_place_two_posterior_matches_baseline_low_weight_behavior(
     motion_set,
     memory,
     model,

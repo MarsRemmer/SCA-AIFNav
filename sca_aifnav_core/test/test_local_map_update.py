@@ -1,4 +1,4 @@
-"""Tests for the first-layer V5 local cognitive-map update."""
+"""Tests for the first-layer baseline local cognitive-map update."""
 
 import math
 
@@ -45,7 +45,7 @@ def origin_state():
     )
 
 
-def test_neighbor_action_jump_matches_v5():
+def test_neighbor_action_jump_matches_baseline():
     assert NEIGHBOR_ACTION_JUMP == 2
 
 

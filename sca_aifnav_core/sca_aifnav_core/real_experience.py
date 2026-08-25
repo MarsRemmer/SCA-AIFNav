@@ -1,4 +1,4 @@
-"""Real observation and transition updates for the AIMAPP V5 baseline."""
+"""Real observation and transition updates for the reference baseline baseline."""
 
 from dataclasses import dataclass
 from typing import Optional
@@ -19,7 +19,7 @@ from sca_aifnav_core.transition_learning import (
 
 @dataclass(frozen=True)
 class RealExperienceResult:
-    """Summarize one V5 real state-observation update."""
+    """Summarize one baseline real state-observation update."""
 
     preliminary_belief: np.ndarray
     learning_belief: np.ndarray
@@ -38,9 +38,9 @@ def update_real_experience(
     motion_set: BaselineMotionSet,
 ) -> RealExperienceResult:
     """
-    Apply the real-observation update sequence used by AIMAPP V5.
+    Apply the real-observation update sequence used by reference baseline.
 
-    Real observation inference uses a uniform state prior because V5 calls
+    Real observation inference uses a uniform state prior because baseline calls
     infer_states without an action in agent_step_update. Transition learning
     then compares that inferred belief with the stored previous belief.
     """
@@ -126,7 +126,7 @@ def _infer_from_uniform_prior(
     sensory_observation: int,
     place_observation: int,
 ) -> np.ndarray:
-    """Infer V5 real state belief using its uniform D prior."""
+    """Infer baseline real state belief using its uniform D prior."""
     uniform_prior = np.full(
         model.num_states,
         1.0 / model.num_states,

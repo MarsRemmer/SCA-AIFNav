@@ -1,4 +1,4 @@
-"""One complete learning step for the AIMAPP V5 baseline."""
+"""One complete learning step for the reference baseline baseline."""
 
 from dataclasses import dataclass
 
@@ -34,7 +34,7 @@ from sca_aifnav_core.transition_node_update import (
 
 @dataclass(frozen=True)
 class BaselineStepResult:
-    """Summarize one complete V5 baseline learning step."""
+    """Summarize one complete reference baseline learning step."""
 
     previous_belief: np.ndarray
     real_experience: RealExperienceResult
@@ -79,7 +79,7 @@ class BaselineStepCoordinator:
         action_id: int,
         obstacle_distances,
     ) -> BaselineStepResult:
-        """Execute one V5 learning-and-map-update cycle."""
+        """Execute one baseline learning-and-map-update cycle."""
         previous_belief = (
             self.history.latest
         )
@@ -97,13 +97,13 @@ class BaselineStepCoordinator:
             motion_set=self.motion_set,
         )
 
-        # V5 saves the inference performed inside
+        # baseline saves the inference performed inside
         # update_believes_with_obs().
         self.history.record(
             experience.learning_belief
         )
 
-        # V5 then performs and saves another posterior
+        # baseline then performs and saves another posterior
         # inference after updating A.
         self.history.record(
             experience.posterior_belief
@@ -128,12 +128,12 @@ class BaselineStepCoordinator:
         )
 
         # Ghost growth can increase the hidden-state
-        # dimension. V5 pads current and historical qs.
+        # dimension. baseline pads current and historical qs.
         self.history.align_to_states(
             self.model.num_states
         )
 
-        # V5 restores the stationary transition after
+        # baseline restores the stationary transition after
         # all other transition-node updates.
         self.model.enforce_stationary_transition()
 

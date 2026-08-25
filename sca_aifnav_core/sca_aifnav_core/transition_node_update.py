@@ -1,4 +1,4 @@
-"""Multi-step transition-node update for the AIMAPP V5 baseline."""
+"""Multi-step transition-node update for the reference baseline baseline."""
 
 from dataclasses import dataclass
 import math
@@ -23,7 +23,7 @@ from sca_aifnav_core.spatial_memory import BaselinePlaceMemory
 
 @dataclass(frozen=True)
 class DirectionTransitionUpdate:
-    """Summarize one direction of the V5 transition-node sweep."""
+    """Summarize one direction of the baseline transition-node sweep."""
 
     action_id: int
     obstacle_distance: float
@@ -38,7 +38,7 @@ class DirectionTransitionUpdate:
 
 @dataclass(frozen=True)
 class TransitionNodeUpdate:
-    """Summarize one complete V5 transition-node sweep."""
+    """Summarize one complete baseline transition-node sweep."""
 
     directions: Tuple[DirectionTransitionUpdate, ...]
     deep_direct_links_updated: int
@@ -56,7 +56,7 @@ def update_cognitive_transition_nodes(
     max_steps: int = DEFAULT_LOOKAHEAD_STEPS,
 ) -> TransitionNodeUpdate:
     """
-    Reproduce the main structure of V5 transition-node growth.
+    Reproduce the main structure of baseline transition-node growth.
 
     Each directional action first grows a straight hypothetical chain.
     The physical first-layer neighborhood is then updated for direct and

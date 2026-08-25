@@ -1,4 +1,4 @@
-"""Action-based spatial projection for the SCA-AIFNav V5 baseline."""
+"""Action-based spatial projection for the SCA-AIFNav baseline."""
 
 import math
 from typing import Optional
@@ -29,7 +29,7 @@ def position_in_action_sector(
     motion_set: BaselineMotionSet,
 ) -> bool:
     """
-    Test whether a position lies inside a V5 action search sector.
+    Test whether a position lies inside a baseline action search sector.
 
     The action search region extends to twice the influence radius and
     spans the 30-degree directional sector associated with the action.
@@ -73,7 +73,7 @@ def existing_place_for_action(
     """
     Return the first stored place reachable in an action sector.
 
-    Stored places are inspected in creation order to preserve AIMAPP V5
+    Stored places are inspected in creation order to preserve reference baseline
     behavior. The current position itself is excluded.
     """
     primitive = motion_set.action(action_id)
@@ -105,7 +105,7 @@ def project_action_position(
     ideal_distance: Optional[float] = None,
 ) -> Point2D:
     """
-    Return the V5 spatial prediction associated with one action.
+    Return the baseline spatial prediction associated with one action.
 
     An existing stored place inside the action search region is reused.
     Otherwise a hypothetical position is generated along the center of

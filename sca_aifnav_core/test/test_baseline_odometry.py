@@ -1,4 +1,4 @@
-"""Tests for the V5-compatible cognitive odometry tracker."""
+"""Tests for the baseline-compatible cognitive odometry tracker."""
 
 import math
 
@@ -45,7 +45,7 @@ def test_state_can_be_returned_as_tuple():
         (5.0 * math.pi / 2.0, math.pi / 2.0),
     ],
 )
-def test_heading_wrap_matches_v5_360_behavior(
+def test_heading_wrap_matches_baseline_360_behavior(
     angle,
     expected,
 ):

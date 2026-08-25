@@ -1,4 +1,4 @@
-"""Lateral imagined links for the AIMAPP V5 baseline."""
+"""Lateral imagined links for the reference baseline baseline."""
 
 from dataclasses import dataclass
 from typing import Optional
@@ -23,7 +23,7 @@ LATERAL_REVERSE_RATE = 1.0
 
 @dataclass(frozen=True)
 class LateralLinkResult:
-    """Describe one V5 lateral imagined transition."""
+    """Describe one baseline lateral imagined transition."""
 
     action_id: int
     reverse_action_id: int
@@ -59,7 +59,7 @@ def apply_lateral_imagined_evidence(
     reachable: bool,
 ) -> Optional[LateralLinkResult]:
     """
-    Learn one lateral imagined transition using V5 rules.
+    Learn one lateral imagined transition using baseline rules.
 
     If source and target resolve to the same location, or if the target is
     outside the geometric action range, no transition evidence is added.
