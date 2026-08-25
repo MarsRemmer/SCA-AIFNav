@@ -1,7 +1,7 @@
 """ROS 2 navigation node for SCA-AIFNav integration."""
 
 import rclpy
-from geometry_msgs.msg import Vector3
+from geometry_msgs.msg import Twist, Vector3
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
@@ -22,6 +22,12 @@ from sca_aifnav_ros.odometry_adapter import (
 )
 from sca_aifnav_ros.orientation_adapter import (
     OrientationAdapter,
+)
+from sca_aifnav_ros.panorama_motion_adapter import (
+    PanoramaMotionAdapter,
+)
+from sca_aifnav_ros.panorama_rotation import (
+    PanoramaRotationController,
 )
 from sca_aifnav_ros.sensor_snapshot import (
     capture_sensor_snapshot as build_sensor_snapshot,
@@ -70,6 +76,11 @@ class NavigationNode(Node):
         )
 
         self.declare_parameter(
+            "cmd_vel_topic",
+            "/cmd_vel",
+        )
+
+        self.declare_parameter(
             "cognitive_odometry_topic",
             "/sca_aifnav/cognitive_odometry",
         )
@@ -90,6 +101,10 @@ class NavigationNode(Node):
 
         scan_topic = self.get_parameter(
             "scan_topic"
+        ).value
+
+        cmd_vel_topic = self.get_parameter(
+            "cmd_vel_topic"
         ).value
 
         camera_topic = self.get_parameter(
@@ -134,6 +149,14 @@ class NavigationNode(Node):
             ImageAdapter()
         )
 
+        self._panorama_rotation_controller = (
+            PanoramaRotationController()
+        )
+
+        self._panorama_motion_adapter = (
+            PanoramaMotionAdapter()
+        )
+
         self._latest_odometry_state = None
         self._latest_physical_yaw_rad = None
         self._latest_obstacle_distances = None
@@ -146,6 +169,24 @@ class NavigationNode(Node):
         self._image_revision = 0
         self._left_image_revision = 0
         self._right_image_revision = 0
+
+        command_qos = rclpy.qos.QoSProfile(
+            reliability=(
+                rclpy.qos.ReliabilityPolicy.RELIABLE
+            ),
+            history=(
+                rclpy.qos.HistoryPolicy.KEEP_LAST
+            ),
+            depth=1,
+        )
+
+        self._cmd_vel_publisher = (
+            self.create_publisher(
+                Twist,
+                cmd_vel_topic,
+                command_qos,
+            )
+        )
 
         self._cognitive_odometry_publisher = (
             self.create_publisher(
@@ -456,6 +497,47 @@ class NavigationNode(Node):
 
         self._latest_right_image = image
         self._right_image_revision += 1
+
+    def publish_panorama_rotation(
+        self,
+        goal_yaw_rad: float,
+    ):
+        """Publish one panorama rotation command toward a yaw target."""
+        if self._latest_physical_yaw_rad is None:
+            return None
+
+        command = (
+            self._panorama_rotation_controller.command(
+                current_yaw_rad=(
+                    self._latest_physical_yaw_rad
+                ),
+                goal_yaw_rad=goal_yaw_rad,
+            )
+        )
+
+        message = (
+            self._panorama_motion_adapter.to_twist(
+                command
+            )
+        )
+
+        self._cmd_vel_publisher.publish(
+            message
+        )
+
+        return command
+
+    def stop_panorama_rotation(
+        self,
+    ) -> None:
+        """Publish an explicit zero-velocity panorama command."""
+        message = (
+            self._panorama_motion_adapter.stop_twist()
+        )
+
+        self._cmd_vel_publisher.publish(
+            message
+        )
 
     def capture_camera_batch(
         self,
