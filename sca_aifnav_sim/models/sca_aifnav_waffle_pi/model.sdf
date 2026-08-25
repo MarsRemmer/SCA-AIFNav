@@ -1,12 +1,8 @@
-<?xml version="1.0" ?>
 <sdf version="1.5">
-  <model name="sca_aifnav_waffle_pi">  
-  <pose>0.0 0.0 0.0 0.0 0.0 0.0</pose>
-
-    <link name="base_footprint"/>
-
+  <model name="sca_aifnav_waffle_pi">
+    <pose>0.0 0.0 0.0 0.0 0.0 0.0</pose>
+    <link name="base_footprint" />
     <link name="base_link">
-
       <inertial>
         <pose>-0.064 0 0.048 0 0 0</pose>
         <inertia>
@@ -19,7 +15,6 @@
         </inertia>
         <mass>1.3729096e+00</mass>
       </inertial>
-
       <collision name="base_collision">
         <pose>-0.064 0 0.048 0 0 0</pose>
         <geometry>
@@ -28,7 +23,6 @@
           </box>
         </geometry>
       </collision>
-
       <visual name="base_visual">
         <pose>-0.064 0 0 0 0 0</pose>
         <geometry>
@@ -43,7 +37,6 @@
         </material>
       </visual>
     </link>
-
     <link name="imu_link">
       <sensor name="tb3_imu" type="imu">
         <always_on>true</always_on>
@@ -92,14 +85,12 @@
         </imu>
         <plugin name="turtlebot3_imu" filename="libgazebo_ros_imu_sensor.so">
           <ros>
-            <!-- <namespace>/tb3</namespace> -->
             <remapping>~/out:=imu</remapping>
           </ros>
         </plugin>
       </sensor>
     </link>
-
-    <link name="base_scan">    
+    <link name="base_scan">
       <inertial>
         <pose>-0.052 0 0.111 0 0 0</pose>
         <inertia>
@@ -112,7 +103,6 @@
         </inertia>
         <mass>0.114</mass>
       </inertial>
-
       <collision name="lidar_sensor_collision">
         <pose>-0.052 0 0.111 0 0 0</pose>
         <geometry>
@@ -122,7 +112,6 @@
           </cylinder>
         </geometry>
       </collision>
-
       <visual name="lidar_sensor_visual">
         <pose>-0.064 0 0.121 0 0 0</pose>
         <geometry>
@@ -136,7 +125,6 @@
           <diffuse>0.2 0.2 0.2 1.0</diffuse>
         </material>
       </visual>
-
       <sensor name="hls_lfcd_lds" type="ray">
         <always_on>true</always_on>
         <visualize>true</visualize>
@@ -164,7 +152,6 @@
         </ray>
         <plugin name="turtlebot3_laserscan" filename="libgazebo_ros_ray_sensor.so">
           <ros>
-            <!-- <namespace>/tb3</namespace> -->
             <remapping>~/out:=scan</remapping>
           </ros>
           <output_type>sensor_msgs/LaserScan</output_type>
@@ -172,9 +159,7 @@
         </plugin>
       </sensor>
     </link>
-
     <link name="wheel_left_link">
-
       <inertial>
         <pose>0.0 0.144 0.023 -1.57 0 0</pose>
         <inertia>
@@ -187,7 +172,6 @@
         </inertia>
         <mass>2.8498940e-02</mass>
       </inertial>
-
       <collision name="wheel_left_collision">
         <pose>0.0 0.144 0.023 -1.57 0 0</pose>
         <geometry>
@@ -197,7 +181,6 @@
           </cylinder>
         </geometry>
         <surface>
-          <!-- This friction pamareter don't contain reliable data!! -->
           <friction>
             <ode>
               <mu>100000</mu>
@@ -219,7 +202,6 @@
           </contact>
         </surface>
       </collision>
-
       <visual name="wheel_left_visual">
         <pose>0.0 0.144 0.023 0 0 0</pose>
         <geometry>
@@ -234,9 +216,7 @@
         </material>
       </visual>
     </link>
-
     <link name="wheel_right_link">
-
       <inertial>
         <pose>0.0 -0.144 0.023 -1.57 0 0</pose>
         <inertia>
@@ -249,7 +229,6 @@
         </inertia>
         <mass>2.8498940e-02</mass>
       </inertial>
-    
       <collision name="wheel_right_collision">
         <pose>0.0 -0.144 0.023 -1.57 0 0</pose>
         <geometry>
@@ -259,7 +238,6 @@
           </cylinder>
         </geometry>
         <surface>
-          <!-- This friction pamareter don't contain reliable data!! -->
           <friction>
             <ode>
               <mu>100000</mu>
@@ -281,7 +259,6 @@
           </contact>
         </surface>
       </collision>
-
       <visual name="wheel_right_visual">
         <pose>0.0 -0.144 0.023 0 0 0</pose>
         <geometry>
@@ -296,8 +273,7 @@
         </material>
       </visual>
     </link>
-
-    <link name='caster_back_right_link'>
+    <link name="caster_back_right_link">
       <pose>-0.177 -0.064 -0.004 -1.57 0 0</pose>
       <inertial>
         <mass>0.001</mass>
@@ -310,7 +286,7 @@
           <izz>0.00001</izz>
         </inertia>
       </inertial>
-      <collision name='collision'>
+      <collision name="collision">
         <geometry>
           <sphere>
             <radius>0.005000</radius>
@@ -330,8 +306,7 @@
         </surface>
       </collision>
     </link>
-
-    <link name='caster_back_left_link'>
+    <link name="caster_back_left_link">
       <pose>-0.177 0.064 -0.004 -1.57 0 0</pose>
       <inertial>
         <mass>0.001</mass>
@@ -344,7 +319,7 @@
           <izz>0.00001</izz>
         </inertia>
       </inertial>
-      <collision name='collision'>
+      <collision name="collision">
         <geometry>
           <sphere>
             <radius>0.005000</radius>
@@ -364,9 +339,7 @@
         </surface>
       </collision>
     </link>
-
-    <link name="front_camera_mount"/>
-
+    <link name="front_camera_mount" />
     <link name="front_camera_frame">
       <inertial>
         <pose>-0.065 0.0 0.25 0 0 0</pose>
@@ -380,53 +353,38 @@
         </inertia>
         <mass>0.035</mass>
       </inertial>
-
       <pose>-0.065 0.0 0.25 0 0 0</pose>
-
-      <sensor
-        name="camera_front"
-        type="camera"
-      >
+      <sensor name="camera_front" type="camera">
+        <pose>0.101 0 0 0 0 0</pose>
         <always_on>true</always_on>
         <visualize>true</visualize>
         <update_rate>30</update_rate>
-
         <camera name="panorama_camera">
           <horizontal_fov>2.0</horizontal_fov>
-
           <image>
             <width>1920</width>
             <height>1080</height>
             <format>R8G8B8</format>
           </image>
-
           <clip>
             <near>0.03</near>
             <far>100</far>
           </clip>
-
           <noise>
             <type>gaussian</type>
             <mean>0.0</mean>
             <stddev>0.007</stddev>
           </noise>
         </camera>
-
-        <plugin
-          name="camera_front_driver"
-          filename="libgazebo_ros_camera.so"
-        >
+        <plugin name="camera_front_driver" filename="libgazebo_ros_camera.so">
           <ros>
           </ros>
-
           <camera_name>camera_front</camera_name>
           <frame_name>front_camera_frame</frame_name>
         </plugin>
       </sensor>
     </link>
-
-    <link name="left_camera_mount"/>
-
+    <link name="left_camera_mount" />
     <link name="left_camera_frame">
       <inertial>
         <pose>-0.065 0.1 0.25 0 0 2.094</pose>
@@ -440,53 +398,38 @@
         </inertia>
         <mass>0.035</mass>
       </inertial>
-
       <pose>-0.065 0.1 0.25 0 0 2.094</pose>
-
-      <sensor
-        name="camera_left"
-        type="camera"
-      >
+      <sensor name="camera_left" type="camera">
+        <pose>0.012895 0.049135 0 0 0 0</pose>
         <always_on>true</always_on>
         <visualize>true</visualize>
         <update_rate>30</update_rate>
-
         <camera name="panorama_camera">
           <horizontal_fov>2.0</horizontal_fov>
-
           <image>
             <width>1920</width>
             <height>1080</height>
             <format>R8G8B8</format>
           </image>
-
           <clip>
             <near>0.03</near>
             <far>100</far>
           </clip>
-
           <noise>
             <type>gaussian</type>
             <mean>0.0</mean>
             <stddev>0.007</stddev>
           </noise>
         </camera>
-
-        <plugin
-          name="camera_left_driver"
-          filename="libgazebo_ros_camera.so"
-        >
+        <plugin name="camera_left_driver" filename="libgazebo_ros_camera.so">
           <ros>
           </ros>
-
           <camera_name>camera_left</camera_name>
           <frame_name>left_camera_frame</frame_name>
         </plugin>
       </sensor>
     </link>
-
-    <link name="right_camera_mount"/>
-
+    <link name="right_camera_mount" />
     <link name="right_camera_frame">
       <inertial>
         <pose>-0.065 -0.1 0.25 0 0 -2.094</pose>
@@ -500,58 +443,42 @@
         </inertia>
         <mass>0.035</mass>
       </inertial>
-
       <pose>-0.065 -0.1 0.25 0 0 -2.094</pose>
-
-      <sensor
-        name="camera_right"
-        type="camera"
-      >
+      <sensor name="camera_right" type="camera">
+        <pose>0.012895 -0.049135 0 0 0 0</pose>
         <always_on>true</always_on>
         <visualize>true</visualize>
         <update_rate>30</update_rate>
-
         <camera name="panorama_camera">
           <horizontal_fov>2.0</horizontal_fov>
-
           <image>
             <width>1920</width>
             <height>1080</height>
             <format>R8G8B8</format>
           </image>
-
           <clip>
             <near>0.03</near>
             <far>100</far>
           </clip>
-
           <noise>
             <type>gaussian</type>
             <mean>0.0</mean>
             <stddev>0.007</stddev>
           </noise>
         </camera>
-
-        <plugin
-          name="camera_right_driver"
-          filename="libgazebo_ros_camera.so"
-        >
+        <plugin name="camera_right_driver" filename="libgazebo_ros_camera.so">
           <ros>
           </ros>
-
           <camera_name>camera_right</camera_name>
           <frame_name>right_camera_frame</frame_name>
         </plugin>
       </sensor>
     </link>
-    
-
     <joint name="base_joint" type="fixed">
       <parent>base_footprint</parent>
       <child>base_link</child>
       <pose>0.0 0.0 0.010 0 0 0</pose>
     </joint>
-
     <joint name="wheel_left_joint" type="revolute">
       <parent>base_link</parent>
       <child>wheel_left_link</child>
@@ -560,7 +487,6 @@
         <xyz>0 0 1</xyz>
       </axis>
     </joint>
-
     <joint name="wheel_right_joint" type="revolute">
       <parent>base_link</parent>
       <child>wheel_right_link</child>
@@ -569,17 +495,14 @@
         <xyz>0 0 1</xyz>
       </axis>
     </joint>
-
-    <joint name='caster_back_right_joint' type='ball'>
+    <joint name="caster_back_right_joint" type="ball">
       <parent>base_link</parent>
       <child>caster_back_right_link</child>
     </joint>
-
-    <joint name='caster_back_left_joint' type='ball'>
+    <joint name="caster_back_left_joint" type="ball">
       <parent>base_link</parent>
       <child>caster_back_left_link</child>
     </joint>
-
     <joint name="imu_joint" type="fixed">
       <parent>base_link</parent>
       <child>imu_link</child>
@@ -587,8 +510,7 @@
       <axis>
         <xyz>0 0 1</xyz>
       </axis>
-    </joint>    
-
+    </joint>
     <joint name="lidar_joint" type="fixed">
       <parent>base_link</parent>
       <child>base_scan</child>
@@ -597,146 +519,92 @@
         <xyz>0 0 1</xyz>
       </axis>
     </joint>
-
-    <joint
-      name="front_camera_mount_joint"
-      type="fixed"
-    >
+    <joint name="front_camera_mount_joint" type="fixed">
       <parent>base_link</parent>
       <child>front_camera_mount</child>
-
       <pose>
         -0.065 0.0 0.25 0 0 0
       </pose>
-
       <axis>
         <xyz>0 0 1</xyz>
       </axis>
     </joint>
-
-    <joint
-      name="front_camera_sensor_joint"
-      type="fixed"
-    >
+    <joint name="front_camera_sensor_joint" type="fixed">
       <parent>front_camera_mount</parent>
       <child>front_camera_frame</child>
-
       <pose>
         0.003 0.011 0.009 0 0 0
       </pose>
-
       <axis>
         <xyz>0 0 1</xyz>
       </axis>
     </joint>
-
-    <joint
-      name="left_camera_mount_joint"
-      type="fixed"
-    >
+    <joint name="left_camera_mount_joint" type="fixed">
       <parent>base_link</parent>
       <child>left_camera_mount</child>
-
       <pose>
         -0.065 0.1 0.25 0 0 2.094
       </pose>
-
       <axis>
         <xyz>0 0 1</xyz>
       </axis>
     </joint>
-
-    <joint
-      name="left_camera_sensor_joint"
-      type="fixed"
-    >
+    <joint name="left_camera_sensor_joint" type="fixed">
       <parent>left_camera_mount</parent>
       <child>left_camera_frame</child>
-
       <pose>
         0.003 0.011 0.009 0 0 0
       </pose>
-
       <axis>
         <xyz>0 0 1</xyz>
       </axis>
     </joint>
-
-    <joint
-      name="right_camera_mount_joint"
-      type="fixed"
-    >
+    <joint name="right_camera_mount_joint" type="fixed">
       <parent>base_link</parent>
       <child>right_camera_mount</child>
-
       <pose>
         -0.065 -0.1 0.25 0 0 -2.094
       </pose>
-
       <axis>
         <xyz>0 0 1</xyz>
       </axis>
     </joint>
-
-    <joint
-      name="right_camera_sensor_joint"
-      type="fixed"
-    >
+    <joint name="right_camera_sensor_joint" type="fixed">
       <parent>right_camera_mount</parent>
       <child>right_camera_frame</child>
-
       <pose>
         0.003 0.011 0.009 0 0 0
       </pose>
-
       <axis>
         <xyz>0 0 1</xyz>
       </axis>
     </joint>
-
-
     <plugin name="turtlebot3_diff_drive" filename="libgazebo_ros_diff_drive.so">
-
       <ros>
-        <!-- <namespace>/tb3</namespace> -->
+        
       </ros>
-
       <update_rate>30</update_rate>
-
-      <!-- wheels -->
       <left_joint>wheel_left_joint</left_joint>
       <right_joint>wheel_right_joint</right_joint>
-
-      <!-- kinematics -->
       <wheel_separation>0.287</wheel_separation>
       <wheel_diameter>0.066</wheel_diameter>
-
-      <!-- limits -->
       <max_wheel_torque>20</max_wheel_torque>
       <max_wheel_acceleration>1.0</max_wheel_acceleration>
-
       <command_topic>cmd_vel</command_topic>
-
-      <!-- output -->
       <publish_odom>true</publish_odom>
       <publish_odom_tf>true</publish_odom_tf>
       <publish_wheel_tf>false</publish_wheel_tf>
-
       <odometry_topic>odom</odometry_topic>
       <odometry_frame>odom</odometry_frame>
       <robot_base_frame>base_footprint</robot_base_frame>
-
     </plugin>
-
     <plugin name="turtlebot3_joint_state" filename="libgazebo_ros_joint_state_publisher.so">
       <ros>
-        <!-- <namespace>/tb3</namespace> -->
         <remapping>~/out:=joint_states</remapping>
       </ros>
       <update_rate>30</update_rate>
       <joint_name>wheel_left_joint</joint_name>
       <joint_name>wheel_right_joint</joint_name>
-    </plugin>    
-
+    </plugin>
   </model>
 </sdf>
