@@ -143,6 +143,49 @@ class BaselineNavigationCoordinator:
             self.model
         )
 
+    def plan_current(
+        self,
+        current_place_id: int,
+        possible_actions=None,
+        action_selection: str = (
+            DEFAULT_ACTION_SELECTION
+        ),
+        rng=None,
+    ) -> MCTSPlan:
+        """
+        Plan from the current learned model without adding experience.
+
+        This entry point is used when planning is needed without a newly
+        completed physical action, for example after changing a goal.
+        """
+        self.preferences.sync_dimensions(
+            self.model
+        )
+
+        return plan_mcts(
+            current_belief=(
+                self.model.state_belief.copy()
+            ),
+            current_place_id=current_place_id,
+            model_interface=(
+                self.model_interface
+            ),
+            num_simulations=(
+                self.num_simulations
+            ),
+            max_rollout_depth=(
+                self.max_rollout_depth
+            ),
+            c_param=self.c_param,
+            action_selection=(
+                action_selection
+            ),
+            possible_actions=(
+                possible_actions
+            ),
+            rng=rng,
+        )
+
     def step_and_plan(
         self,
         state: CognitiveOdomState,
@@ -197,28 +240,15 @@ class BaselineNavigationCoordinator:
                 current_place_id
             )
 
-        planning_result = plan_mcts(
-            current_belief=(
-                learning_result.final_belief
-            ),
+        planning_result = self.plan_current(
             current_place_id=(
                 planning_place_id
             ),
-            model_interface=(
-                self.model_interface
-            ),
-            num_simulations=(
-                self.num_simulations
-            ),
-            max_rollout_depth=(
-                self.max_rollout_depth
-            ),
-            c_param=self.c_param,
-            action_selection=(
-                action_selection
-            ),
             possible_actions=(
                 possible_actions
+            ),
+            action_selection=(
+                action_selection
             ),
             rng=rng,
         )
