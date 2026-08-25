@@ -23,6 +23,9 @@ from sca_aifnav_ros.odometry_adapter import (
 from sca_aifnav_ros.orientation_adapter import (
     OrientationAdapter,
 )
+from sca_aifnav_ros.sensor_snapshot import (
+    capture_sensor_snapshot as build_sensor_snapshot,
+)
 
 
 class NavigationNode(Node):
@@ -214,6 +217,15 @@ class NavigationNode(Node):
         return self._image_revision
 
     @property
+    def sensor_snapshot_ready(self) -> bool:
+        """Return whether all navigation sensor inputs are available."""
+        return (
+            self.has_odometry
+            and self.has_obstacle_distances
+            and self.has_image
+        )
+
+    @property
     def odometry_revision(self) -> int:
         """Return the number of processed odometry messages."""
         return self._odometry_revision
@@ -341,6 +353,30 @@ class NavigationNode(Node):
 
         self._latest_image = image
         self._image_revision += 1
+
+    def capture_sensor_snapshot(
+        self,
+    ):
+        """Freeze the latest complete navigation sensor state."""
+        if not self.sensor_snapshot_ready:
+            return None
+
+        return build_sensor_snapshot(
+            state=self._latest_odometry_state,
+            obstacle_distances=(
+                self._latest_obstacle_distances
+            ),
+            image=self._latest_image,
+            odometry_revision=(
+                self._odometry_revision
+            ),
+            scan_revision=(
+                self._scan_revision
+            ),
+            image_revision=(
+                self._image_revision
+            ),
+        )
 
 
 def main(args=None) -> None:
