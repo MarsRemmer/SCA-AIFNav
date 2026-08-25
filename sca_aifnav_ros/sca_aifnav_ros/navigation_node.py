@@ -39,6 +39,9 @@ from sca_aifnav_ros.panorama_rotation import (
 from sca_aifnav_ros.sensor_snapshot import (
     capture_sensor_snapshot as build_sensor_snapshot,
 )
+from sca_aifnav_ros.visual_observation import (
+    PanoramicVisualObserver,
+)
 
 
 class NavigationNode(Node):
@@ -181,6 +184,11 @@ class NavigationNode(Node):
         )
 
         self._panorama_coordinator = None
+
+        self._visual_observer = (
+            PanoramicVisualObserver()
+        )
+        self._latest_visual_observation = None
 
         self._latest_odometry_state = None
         self._latest_physical_yaw_rad = None
@@ -375,6 +383,29 @@ class NavigationNode(Node):
             return None
 
         return self._panorama_coordinator.state
+
+    @property
+    def has_visual_observation(self) -> bool:
+        """Return whether the latest panorama has been visually processed."""
+        return (
+            self._latest_visual_observation
+            is not None
+        )
+
+    @property
+    def latest_visual_observation(self):
+        """Return the latest panoramic visual observation result."""
+        return self._latest_visual_observation
+
+    @property
+    def visual_observation_id(self):
+        """Return the latest discrete visual observation ID."""
+        if self._latest_visual_observation is None:
+            return None
+
+        return (
+            self._latest_visual_observation.observation_id
+        )
 
     @property
     def sensor_snapshot_ready(self) -> bool:
@@ -634,6 +665,7 @@ class NavigationNode(Node):
             self._camera_revisions(),
         )
 
+        self._latest_visual_observation = None
         self._panorama_coordinator = coordinator
 
         return True
@@ -697,6 +729,26 @@ class NavigationNode(Node):
             return None
 
         return self._panorama_coordinator.compiled_images()
+
+    def process_completed_visual_observation(
+        self,
+    ):
+        """Convert one completed panorama into a discrete observation."""
+        if self._latest_visual_observation is not None:
+            return self._latest_visual_observation
+
+        images = self.completed_panorama_images()
+
+        if images is None:
+            return None
+
+        result = self._visual_observer.process(
+            images
+        )
+
+        self._latest_visual_observation = result
+
+        return result
 
     def _panorama_timer_callback(
         self,
