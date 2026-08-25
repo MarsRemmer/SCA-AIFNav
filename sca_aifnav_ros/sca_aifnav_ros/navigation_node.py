@@ -56,7 +56,17 @@ class NavigationNode(Node):
 
         self.declare_parameter(
             "camera_topic",
-            "/camera/image_raw",
+            "/camera_front/image_raw",
+        )
+
+        self.declare_parameter(
+            "left_camera_topic",
+            "/camera_left/image_raw",
+        )
+
+        self.declare_parameter(
+            "right_camera_topic",
+            "/camera_right/image_raw",
         )
 
         self.declare_parameter(
@@ -84,6 +94,14 @@ class NavigationNode(Node):
 
         camera_topic = self.get_parameter(
             "camera_topic"
+        ).value
+
+        left_camera_topic = self.get_parameter(
+            "left_camera_topic"
+        ).value
+
+        right_camera_topic = self.get_parameter(
+            "right_camera_topic"
         ).value
 
         cognitive_odometry_topic = (
@@ -120,10 +138,14 @@ class NavigationNode(Node):
         self._latest_physical_yaw_rad = None
         self._latest_obstacle_distances = None
         self._latest_image = None
+        self._latest_left_image = None
+        self._latest_right_image = None
 
         self._odometry_revision = 0
         self._scan_revision = 0
         self._image_revision = 0
+        self._left_image_revision = 0
+        self._right_image_revision = 0
 
         self._cognitive_odometry_publisher = (
             self.create_publisher(
@@ -164,6 +186,24 @@ class NavigationNode(Node):
                 Image,
                 camera_topic,
                 self._image_callback,
+                qos_profile_sensor_data,
+            )
+        )
+
+        self._left_image_subscription = (
+            self.create_subscription(
+                Image,
+                left_camera_topic,
+                self._left_image_callback,
+                qos_profile_sensor_data,
+            )
+        )
+
+        self._right_image_subscription = (
+            self.create_subscription(
+                Image,
+                right_camera_topic,
+                self._right_image_callback,
                 qos_profile_sensor_data,
             )
         )
@@ -213,8 +253,47 @@ class NavigationNode(Node):
 
     @property
     def image_revision(self) -> int:
-        """Return the number of processed camera images."""
+        """Return the number of processed front-camera images."""
         return self._image_revision
+
+    @property
+    def latest_front_image(self):
+        """Return the latest front-camera BGR image."""
+        return self._latest_image
+
+    @property
+    def latest_left_image(self):
+        """Return the latest left-camera BGR image."""
+        return self._latest_left_image
+
+    @property
+    def latest_right_image(self):
+        """Return the latest right-camera BGR image."""
+        return self._latest_right_image
+
+    @property
+    def front_image_revision(self) -> int:
+        """Return the number of processed front-camera images."""
+        return self._image_revision
+
+    @property
+    def left_image_revision(self) -> int:
+        """Return the number of processed left-camera images."""
+        return self._left_image_revision
+
+    @property
+    def right_image_revision(self) -> int:
+        """Return the number of processed right-camera images."""
+        return self._right_image_revision
+
+    @property
+    def camera_batch_ready(self) -> bool:
+        """Return whether all three camera streams have supplied an image."""
+        return (
+            self._latest_image is not None
+            and self._latest_left_image is not None
+            and self._latest_right_image is not None
+        )
 
     @property
     def sensor_snapshot_ready(self) -> bool:
@@ -346,13 +425,50 @@ class NavigationNode(Node):
         self,
         message: Image,
     ) -> None:
-        """Convert and store one camera image."""
+        """Convert and store one front-camera image."""
         image = self._image_adapter.to_bgr(
             message
         )
 
         self._latest_image = image
         self._image_revision += 1
+
+    def _left_image_callback(
+        self,
+        message: Image,
+    ) -> None:
+        """Convert and store one left-camera image."""
+        image = self._image_adapter.to_bgr(
+            message
+        )
+
+        self._latest_left_image = image
+        self._left_image_revision += 1
+
+    def _right_image_callback(
+        self,
+        message: Image,
+    ) -> None:
+        """Convert and store one right-camera image."""
+        image = self._image_adapter.to_bgr(
+            message
+        )
+
+        self._latest_right_image = image
+        self._right_image_revision += 1
+
+    def capture_camera_batch(
+        self,
+    ):
+        """Freeze the latest front, left, and right camera images."""
+        if not self.camera_batch_ready:
+            return None
+
+        return (
+            self._latest_image.copy(),
+            self._latest_left_image.copy(),
+            self._latest_right_image.copy(),
+        )
 
     def capture_sensor_snapshot(
         self,

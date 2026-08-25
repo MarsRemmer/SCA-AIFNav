@@ -52,7 +52,7 @@ def test_default_camera_topic(
             node.get_parameter(
                 "camera_topic"
             ).value
-            == "/camera/image_raw"
+            == "/camera_front/image_raw"
         )
     finally:
         node.destroy_node()
