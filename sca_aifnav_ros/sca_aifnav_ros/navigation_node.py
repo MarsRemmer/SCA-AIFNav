@@ -102,6 +102,11 @@ class NavigationNode(Node):
             0.0,
         )
 
+        self.declare_parameter(
+            "panorama_control_period_sec",
+            0.05,
+        )
+
         odom_topic = self.get_parameter(
             "odom_topic"
         ).value
@@ -143,6 +148,17 @@ class NavigationNode(Node):
                 "laser_yaw_offset_rad"
             ).value
         )
+
+        panorama_control_period_sec = float(
+            self.get_parameter(
+                "panorama_control_period_sec"
+            ).value
+        )
+
+        if panorama_control_period_sec <= 0.0:
+            raise ValueError(
+                "panorama_control_period_sec must be positive"
+            )
 
         self._odometry_adapter = (
             OdometryAdapter()
@@ -255,6 +271,13 @@ class NavigationNode(Node):
                 right_camera_topic,
                 self._right_image_callback,
                 qos_profile_sensor_data,
+            )
+        )
+
+        self._panorama_timer = (
+            self.create_timer(
+                panorama_control_period_sec,
+                self._panorama_timer_callback,
             )
         )
 
@@ -674,6 +697,18 @@ class NavigationNode(Node):
             return None
 
         return self._panorama_coordinator.compiled_images()
+
+    def _panorama_timer_callback(
+        self,
+    ) -> None:
+        """Advance an active panorama acquisition without blocking ROS."""
+        if (
+            self._panorama_coordinator is None
+            or self._panorama_coordinator.is_complete
+        ):
+            return
+
+        self.step_panorama_acquisition()
 
     def capture_sensor_snapshot(
         self,
