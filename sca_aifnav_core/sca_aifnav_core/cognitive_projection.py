@@ -73,7 +73,7 @@ def existing_place_for_action(
     """
     Return the first stored place reachable in an action sector.
 
-    Stored places are inspected in creation order to preserve reference baseline
+    Stored places are inspected in creation order to preserve baseline
     behavior. The current position itself is excluded.
     """
     primitive = motion_set.action(action_id)

@@ -1,4 +1,4 @@
-"""One complete learning step for the reference baseline baseline."""
+"""One complete learning step for the baseline."""
 
 from dataclasses import dataclass
 
@@ -34,7 +34,7 @@ from sca_aifnav_core.transition_node_update import (
 
 @dataclass(frozen=True)
 class BaselineStepResult:
-    """Summarize one complete reference baseline learning step."""
+    """Summarize one complete baseline learning step."""
 
     previous_belief: np.ndarray
     real_experience: RealExperienceResult

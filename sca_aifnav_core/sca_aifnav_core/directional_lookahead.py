@@ -1,4 +1,4 @@
-"""Directional multi-step cognitive lookahead for reference baseline."""
+"""Directional multi-step cognitive lookahead for the baseline."""
 
 from dataclasses import dataclass
 import math

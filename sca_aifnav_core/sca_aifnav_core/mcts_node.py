@@ -1,4 +1,4 @@
-"""Search-tree node primitives for the reference baseline MCTS baseline."""
+"""Search-tree node primitives for active inference planning."""
 
 import math
 
@@ -58,7 +58,7 @@ class SearchTreeNode:
         use_state_information_gain: bool = True,
     ) -> float:
         """
-        Compute reference baseline's UCB1 node-selection score.
+        Compute the baseline UCB1 node-selection score.
 
         In baseline, the exploitation term is enabled by the utility flag and
         the UCB exploration term is enabled by the state-info-gain flag.

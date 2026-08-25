@@ -1,4 +1,4 @@
-"""Observation-model learning for the reference baseline baseline."""
+"""Observation-model learning for the baseline generative model."""
 
 import math
 
@@ -21,7 +21,7 @@ def learn_sensory_observation(
     """
     Update the sensory pA/A distribution using one observation.
 
-    reference baseline uses a Dirichlet pseudo-count update with learning rate 5.
+    The baseline uses a Dirichlet pseudo-count update with learning rate 5.
     Only entries with existing non-zero support in A may be learned.
     """
     belief = _validated_belief(

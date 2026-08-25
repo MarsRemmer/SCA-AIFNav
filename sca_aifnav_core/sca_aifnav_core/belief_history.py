@@ -1,4 +1,4 @@
-"""State-belief history for the reference baseline baseline."""
+"""State-belief history for the baseline."""
 
 import numpy as np
 

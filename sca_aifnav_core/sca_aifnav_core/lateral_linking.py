@@ -1,4 +1,4 @@
-"""Lateral imagined links for the reference baseline baseline."""
+"""Lateral imagined links for the baseline."""
 
 from dataclasses import dataclass
 from typing import Optional

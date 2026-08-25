@@ -21,7 +21,7 @@ class MotionPrimitive:
 
 class BaselineMotionSet:
     """
-    Represent the thirteen-action reference baseline baseline motion set.
+    Represent the thirteen-action baseline motion set.
 
     Actions 0 through 11 divide the full plane into twelve 30-degree
     directional sectors. Action 12 represents a stationary action.

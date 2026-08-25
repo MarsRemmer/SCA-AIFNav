@@ -1,4 +1,4 @@
-"""Model interface used by the reference baseline MCTS baseline."""
+"""Model interface for the active inference MCTS planner."""
 
 from sca_aifnav_core.action_evaluation import (
     ActionEvaluation,

@@ -1,4 +1,4 @@
-"""Obstacle-driven transition evidence for the reference baseline baseline."""
+"""Obstacle-driven transition evidence for the baseline."""
 
 import numpy as np
 
@@ -30,7 +30,7 @@ def reinforce_blocked_self_loop(
     """
     Reinforce staying in the current state when an action is blocked.
 
-    reference baseline uses a +10 transition update for the direct first-step
+    The baseline uses a +10 transition update for the direct first-step
     obstacle case.
     """
     _validate_directional_action(

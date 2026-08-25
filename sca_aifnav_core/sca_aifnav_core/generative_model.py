@@ -15,14 +15,14 @@ INITIAL_UNKNOWN_LIKELIHOOD = 0.01
 
 class BaselineGenerativeModel:
     """
-    Store the dynamic probabilistic model used by the reference baseline.
+    Store the dynamic probabilistic model used by the baseline.
 
     The model contains two observation modalities:
 
     - sensory observations;
     - discrete cognitive-place observations.
 
-    The constructor reproduces the model state after reference baseline
+    The constructor initializes the baseline model state after
     initialization has associated the starting observations with state 0.
     """
 
@@ -279,7 +279,7 @@ class BaselineGenerativeModel:
         sensory_observation: int,
         place_observation: int,
     ) -> None:
-        """Reproduce reference baseline likelihood initialization."""
+        """Initialize the baseline likelihood model."""
         self.sensory_likelihood[:] = (
             INITIAL_UNKNOWN_LIKELIHOOD
         )

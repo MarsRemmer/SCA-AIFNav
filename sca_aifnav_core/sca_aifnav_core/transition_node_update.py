@@ -1,4 +1,4 @@
-"""Multi-step transition-node update for the reference baseline baseline."""
+"""Multi-step transition-node update for the baseline."""
 
 from dataclasses import dataclass
 import math

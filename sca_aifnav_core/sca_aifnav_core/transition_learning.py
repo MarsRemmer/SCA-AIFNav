@@ -1,4 +1,4 @@
-"""Transition learning rules for the reference baseline baseline."""
+"""Transition learning rules for the baseline generative model."""
 
 import math
 
@@ -104,7 +104,7 @@ def learn_bidirectional_transition(
     reverse_rate: float = REVERSE_TRANSITION_RATE,
 ) -> int:
     """
-    Learn one transition and its reverse using reference baseline rates.
+    Learn one transition and its reverse using baseline learning rates.
 
     Return the reverse action identifier.
     """

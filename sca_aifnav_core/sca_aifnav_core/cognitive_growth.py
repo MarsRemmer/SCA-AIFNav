@@ -1,4 +1,4 @@
-"""Cognitive-map growth operations for the reference baseline baseline."""
+"""Cognitive-map growth operations for the baseline."""
 
 from dataclasses import dataclass
 import math
@@ -33,7 +33,7 @@ def node_step_distance(
     """
     Return the baseline distance used for a cognitive node step.
 
-    reference baseline uses:
+    The baseline uses:
         influence_radius * state_step + robot_dimension / 2
     """
     if not math.isfinite(influence_radius):

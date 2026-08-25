@@ -60,7 +60,7 @@ class CognitiveOdomState:
 
 class BaselineOdomTracker:
     """
-    Track cognitive odometry following reference baseline behavior.
+    Track cognitive odometry following baseline behavior.
 
     Updating from a position computes the direction of displacement from
     the previous position and stores that direction in [0, 2*pi).

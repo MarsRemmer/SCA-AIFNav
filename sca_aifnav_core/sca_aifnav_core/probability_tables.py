@@ -1,4 +1,4 @@
-"""Probability-table utilities matching the reference baseline baseline."""
+"""Probability-table utilities for the baseline generative model."""
 
 
 import numpy as np

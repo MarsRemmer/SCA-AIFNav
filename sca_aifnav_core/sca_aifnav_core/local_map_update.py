@@ -1,4 +1,4 @@
-"""First-layer local cognitive-map update for reference baseline."""
+"""First-layer local cognitive-map update for the baseline."""
 
 from dataclasses import dataclass
 import math

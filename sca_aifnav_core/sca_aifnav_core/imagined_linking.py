@@ -1,4 +1,4 @@
-"""Imagined cognitive links for the reference baseline baseline."""
+"""Imagined cognitive links for the baseline."""
 
 from dataclasses import dataclass
 
@@ -43,7 +43,7 @@ def create_and_link_hypothetical_state(
     """
     Create or reuse a ghost state and learn its direct imagined link.
 
-    This function represents the positive direct-link branch of reference baseline.
+    This function represents the positive direct-link branch of the baseline.
     Obstacle gating is intentionally handled by a later layer.
     """
     if reference_belief is None:

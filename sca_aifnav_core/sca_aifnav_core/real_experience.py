@@ -1,4 +1,4 @@
-"""Real observation and transition updates for the reference baseline baseline."""
+"""Real observation and transition updates for the baseline."""
 
 from dataclasses import dataclass
 from typing import Optional
@@ -38,7 +38,7 @@ def update_real_experience(
     motion_set: BaselineMotionSet,
 ) -> RealExperienceResult:
     """
-    Apply the real-observation update sequence used by reference baseline.
+    Apply the baseline real-observation update sequence.
 
     Real observation inference uses a uniform state prior because baseline calls
     infer_states without an action in agent_step_update. Transition learning

@@ -1,4 +1,4 @@
-"""One-step Active Inference action evaluation for the reference baseline."""
+"""One-step active inference action evaluation for the baseline."""
 
 from dataclasses import dataclass
 

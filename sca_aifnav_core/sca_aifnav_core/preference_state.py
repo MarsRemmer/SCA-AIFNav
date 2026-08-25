@@ -1,4 +1,4 @@
-"""Observation and state preferences for the reference baseline baseline."""
+"""Observation and state preferences for the baseline."""
 
 from dataclasses import dataclass
 import math
