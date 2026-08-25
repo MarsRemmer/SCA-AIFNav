@@ -144,7 +144,7 @@ def update_first_layer_local_map(
         )
 
         direct_updated, lateral_updated = (
-            _update_imagined_neighborhood(
+            update_imagined_neighborhood(
                 state=state,
                 action_id=action_id,
                 obstacle_distances=distances,
@@ -179,7 +179,7 @@ def update_first_layer_local_map(
     )
 
 
-def _update_imagined_neighborhood(
+def update_imagined_neighborhood(
     state: CognitiveOdomState,
     action_id: int,
     obstacle_distances: Tuple[float, ...],
