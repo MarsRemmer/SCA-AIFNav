@@ -5,11 +5,14 @@ from geometry_msgs.msg import Vector3
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
-from sensor_msgs.msg import LaserScan
+from sensor_msgs.msg import Image, LaserScan
 from std_msgs.msg import Float32MultiArray
 
 from sca_aifnav_core.baseline_odometry import (
     CognitiveOdomState,
+)
+from sca_aifnav_ros.image_adapter import (
+    ImageAdapter,
 )
 from sca_aifnav_ros.obstacle_scan_adapter import (
     ObstacleScanAdapter,
@@ -49,6 +52,11 @@ class NavigationNode(Node):
         )
 
         self.declare_parameter(
+            "camera_topic",
+            "/camera/image_raw",
+        )
+
+        self.declare_parameter(
             "cognitive_odometry_topic",
             "/sca_aifnav/cognitive_odometry",
         )
@@ -69,6 +77,10 @@ class NavigationNode(Node):
 
         scan_topic = self.get_parameter(
             "scan_topic"
+        ).value
+
+        camera_topic = self.get_parameter(
+            "camera_topic"
         ).value
 
         cognitive_odometry_topic = (
@@ -97,12 +109,18 @@ class NavigationNode(Node):
             ObstacleScanAdapter()
         )
 
+        self._image_adapter = (
+            ImageAdapter()
+        )
+
         self._latest_odometry_state = None
         self._latest_physical_yaw_rad = None
         self._latest_obstacle_distances = None
+        self._latest_image = None
 
         self._odometry_revision = 0
         self._scan_revision = 0
+        self._image_revision = 0
 
         self._cognitive_odometry_publisher = (
             self.create_publisher(
@@ -134,6 +152,15 @@ class NavigationNode(Node):
                 LaserScan,
                 scan_topic,
                 self._scan_callback,
+                qos_profile_sensor_data,
+            )
+        )
+
+        self._image_subscription = (
+            self.create_subscription(
+                Image,
+                camera_topic,
+                self._image_callback,
                 qos_profile_sensor_data,
             )
         )
@@ -170,6 +197,21 @@ class NavigationNode(Node):
     def latest_obstacle_distances(self):
         """Return the latest twelve directional obstacle distances."""
         return self._latest_obstacle_distances
+
+    @property
+    def has_image(self) -> bool:
+        """Return whether at least one camera image was processed."""
+        return self._latest_image is not None
+
+    @property
+    def latest_image(self):
+        """Return the latest camera image in OpenCV BGR format."""
+        return self._latest_image
+
+    @property
+    def image_revision(self) -> int:
+        """Return the number of processed camera images."""
+        return self._image_revision
 
     @property
     def odometry_revision(self) -> int:
@@ -287,6 +329,18 @@ class NavigationNode(Node):
         self._obstacle_distance_publisher.publish(
             diagnostic_message
         )
+
+    def _image_callback(
+        self,
+        message: Image,
+    ) -> None:
+        """Convert and store one camera image."""
+        image = self._image_adapter.to_bgr(
+            message
+        )
+
+        self._latest_image = image
+        self._image_revision += 1
 
 
 def main(args=None) -> None:
