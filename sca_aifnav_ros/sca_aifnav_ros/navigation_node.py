@@ -11,6 +11,9 @@ from std_msgs.msg import Float32MultiArray
 from sca_aifnav_core.baseline_odometry import (
     CognitiveOdomState,
 )
+from sca_aifnav_core.motion_primitives import (
+    BaselineMotionSet,
+)
 from sca_aifnav_ros.image_adapter import (
     ImageAdapter,
 )
@@ -22,6 +25,10 @@ from sca_aifnav_ros.odometry_adapter import (
 )
 from sca_aifnav_ros.orientation_adapter import (
     OrientationAdapter,
+)
+from sca_aifnav_ros.panorama_coordinator import (
+    PanoramaCoordinator,
+    PanoramaCoordinatorState,
 )
 from sca_aifnav_ros.panorama_motion_adapter import (
     PanoramaMotionAdapter,
@@ -156,6 +163,8 @@ class NavigationNode(Node):
         self._panorama_motion_adapter = (
             PanoramaMotionAdapter()
         )
+
+        self._panorama_coordinator = None
 
         self._latest_odometry_state = None
         self._latest_physical_yaw_rad = None
@@ -335,6 +344,14 @@ class NavigationNode(Node):
             and self._latest_left_image is not None
             and self._latest_right_image is not None
         )
+
+    @property
+    def panorama_acquisition_state(self):
+        """Return the current panorama acquisition state, if any."""
+        if self._panorama_coordinator is None:
+            return None
+
+        return self._panorama_coordinator.state
 
     @property
     def sensor_snapshot_ready(self) -> bool:
@@ -551,6 +568,112 @@ class NavigationNode(Node):
             self._latest_left_image.copy(),
             self._latest_right_image.copy(),
         )
+
+    def _camera_revisions(
+        self,
+    ):
+        """Return the current three-camera revision tuple."""
+        return (
+            self._image_revision,
+            self._left_image_revision,
+            self._right_image_revision,
+        )
+
+    def start_panorama_acquisition(
+        self,
+    ) -> bool:
+        """Start one panorama cycle when yaw and cameras are ready."""
+        if (
+            self._latest_physical_yaw_rad is None
+            or not self.camera_batch_ready
+        ):
+            return False
+
+        if (
+            self._panorama_coordinator is not None
+            and not self._panorama_coordinator.is_complete
+        ):
+            raise RuntimeError(
+                "panorama acquisition is already active"
+            )
+
+        coordinator = PanoramaCoordinator(
+            current_yaw_rad=(
+                self._latest_physical_yaw_rad
+            ),
+            action_count=(
+                BaselineMotionSet.ACTION_COUNT
+            ),
+        )
+
+        coordinator.capture_initial_batch(
+            self.capture_camera_batch(),
+            self._camera_revisions(),
+        )
+
+        self._panorama_coordinator = coordinator
+
+        return True
+
+    def step_panorama_acquisition(
+        self,
+    ):
+        """Advance one non-blocking panorama acquisition step."""
+        coordinator = self._panorama_coordinator
+
+        if coordinator is None:
+            return None
+
+        if coordinator.is_complete:
+            return coordinator.state
+
+        if (
+            coordinator.state
+            is PanoramaCoordinatorState.ROTATING
+        ):
+            command = self.publish_panorama_rotation(
+                coordinator.current_goal_yaw_rad
+            )
+
+            if (
+                command is not None
+                and command.goal_reached
+            ):
+                coordinator.mark_rotation_reached(
+                    self._camera_revisions()
+                )
+
+            return coordinator.state
+
+        if (
+            coordinator.state
+            is PanoramaCoordinatorState.WAIT_FRESH_CAMERAS
+        ):
+            revisions = self._camera_revisions()
+
+            if coordinator.fresh_camera_batch_ready(
+                revisions
+            ):
+                coordinator.capture_fresh_batch(
+                    self.capture_camera_batch(),
+                    revisions,
+                )
+
+            return coordinator.state
+
+        return coordinator.state
+
+    def completed_panorama_images(
+        self,
+    ):
+        """Return completed panorama images, or None while incomplete."""
+        if (
+            self._panorama_coordinator is None
+            or not self._panorama_coordinator.is_complete
+        ):
+            return None
+
+        return self._panorama_coordinator.compiled_images()
 
     def capture_sensor_snapshot(
         self,
