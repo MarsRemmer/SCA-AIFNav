@@ -1,5 +1,7 @@
 """Model interface for the active inference MCTS planner."""
 
+from dataclasses import replace
+
 from sca_aifnav_core.action_evaluation import (
     ActionEvaluation,
     ExpectedObservations,
@@ -16,6 +18,10 @@ from sca_aifnav_core.cognitive_projection import (
 )
 from sca_aifnav_core.generative_model import (
     BaselineGenerativeModel,
+)
+from sca_aifnav_core.inductive_inference import (
+    DEFAULT_INDUCTIVE_HORIZON,
+    inductive_bonus,
 )
 from sca_aifnav_core.motion_primitives import (
     BaselineMotionSet,
@@ -39,6 +45,8 @@ class MCTSModelInterface:
         preferences: BaselinePreferenceState,
         use_utility: bool = True,
         use_state_information_gain: bool = True,
+        use_inductive_inference: bool = False,
+        inductive_horizon: int = DEFAULT_INDUCTIVE_HORIZON,
     ) -> None:
         self.model = model
         self.memory = memory
@@ -52,6 +60,12 @@ class MCTSModelInterface:
         self.use_state_information_gain = bool(
             use_state_information_gain
         )
+
+        self.use_inductive_inference = bool(
+            use_inductive_inference
+        )
+
+        self.inductive_horizon = inductive_horizon
 
     def get_possible_actions(self):
         """Return every baseline action, including STAY."""
@@ -164,8 +178,8 @@ class MCTSModelInterface:
         current_belief,
         action_id: int,
     ) -> ActionEvaluation:
-        """Calculate the currently supported baseline G terms for one action."""
-        return evaluate_action(
+        """Calculate all enabled baseline reward terms for one action."""
+        base_evaluation = evaluate_action(
             model=self.model,
             preferences=self.preferences,
             action_id=action_id,
@@ -173,6 +187,33 @@ class MCTSModelInterface:
             use_utility=self.use_utility,
             use_state_information_gain=(
                 self.use_state_information_gain
+            ),
+        )
+
+        if not self.use_inductive_inference:
+            return base_evaluation
+
+        bonus = inductive_bonus(
+            current_belief=current_belief,
+            predicted_belief=(
+                base_evaluation.predicted_state
+            ),
+            transition_likelihood=(
+                self.model.transition_likelihood
+            ),
+            preferred_states=(
+                self.preferences.preferred_states
+            ),
+            lookahead_horizon=(
+                self.inductive_horizon
+            ),
+        )
+
+        return replace(
+            base_evaluation,
+            score=(
+                base_evaluation.score
+                + bonus
             ),
         )
 
