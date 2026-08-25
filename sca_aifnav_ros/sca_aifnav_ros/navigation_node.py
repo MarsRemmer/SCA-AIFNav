@@ -12,6 +12,9 @@ from sca_aifnav_core.baseline_odometry import (
 from sca_aifnav_ros.odometry_adapter import (
     OdometryAdapter,
 )
+from sca_aifnav_ros.orientation_adapter import (
+    OrientationAdapter,
+)
 
 
 class NavigationNode(Node):
@@ -55,6 +58,7 @@ class NavigationNode(Node):
         )
 
         self._latest_odometry_state = None
+        self._latest_physical_yaw_rad = None
         self._odometry_revision = 0
 
         self._cognitive_odometry_publisher = (
@@ -88,6 +92,11 @@ class NavigationNode(Node):
     ) -> CognitiveOdomState:
         """Return the most recently converted cognitive odometry state."""
         return self._latest_odometry_state
+
+    @property
+    def physical_yaw_rad(self):
+        """Return the latest physical robot body yaw in radians."""
+        return self._latest_physical_yaw_rad
 
     @property
     def odometry_revision(self) -> int:
@@ -131,7 +140,16 @@ class NavigationNode(Node):
             message
         )
 
+        physical_yaw_rad = (
+            OrientationAdapter.yaw_from_quaternion(
+                message.pose.pose.orientation
+            )
+        )
+
         self._latest_odometry_state = state
+        self._latest_physical_yaw_rad = (
+            physical_yaw_rad
+        )
 
         self._odometry_revision += 1
 
