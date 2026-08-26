@@ -221,6 +221,15 @@ class NavigationNode(Node):
         self._latest_navigation_motion_update = None
         self._latest_scan_message = None
 
+        self._autonomous_navigation_active = False
+
+        self._navigation_control_timer = (
+            self.create_timer(
+                0.2,
+                self._navigation_control_timer_callback,
+            )
+        )
+
         self._latest_odometry_state = None
         self._latest_physical_yaw_rad = None
         self._latest_obstacle_distances = None
@@ -497,6 +506,11 @@ class NavigationNode(Node):
         return (
             self._latest_navigation_motion_update
         )
+
+    @property
+    def autonomous_navigation_active(self) -> bool:
+        """Return whether autonomous navigation is running."""
+        return self._autonomous_navigation_active
 
     @property
     def sensor_snapshot_ready(self) -> bool:
@@ -1043,6 +1057,84 @@ class NavigationNode(Node):
             )
 
         return update
+
+    def start_autonomous_navigation(
+        self,
+    ) -> bool:
+        """Start the repeated observe-plan-act navigation cycle."""
+        if self._autonomous_navigation_active:
+            return False
+
+        if self.navigation_action_active:
+            raise RuntimeError(
+                "cannot start autonomous navigation "
+                "while a physical action is already active"
+            )
+
+        started = self.start_panorama_acquisition()
+
+        if not started:
+            return False
+
+        self._autonomous_navigation_active = True
+
+        return True
+
+    def step_autonomous_navigation(
+        self,
+    ):
+        """Advance the autonomous navigation lifecycle once."""
+        if not self._autonomous_navigation_active:
+            return None
+
+        if self.navigation_action_active:
+            update = self.step_navigation_action()
+
+            if (
+                update is not None
+                and update.completed_action_id
+                is not None
+            ):
+                started = (
+                    self.start_panorama_acquisition()
+                )
+
+                if not started:
+                    self._autonomous_navigation_active = (
+                        False
+                    )
+
+            return update
+
+        decision = (
+            self.process_completed_navigation_cycle()
+        )
+
+        if decision is None:
+            return None
+
+        started = (
+            self.start_planned_navigation_action()
+        )
+
+        if not started:
+            self._autonomous_navigation_active = False
+
+            raise RuntimeError(
+                "core decision has no executable "
+                "navigation target"
+            )
+
+        return decision
+
+    def _navigation_control_timer_callback(
+        self,
+    ) -> None:
+        """Advance autonomous navigation at the physical control rate."""
+        if not self._autonomous_navigation_active:
+            return
+
+        self.step_autonomous_navigation()
 
     def _panorama_timer_callback(
         self,
