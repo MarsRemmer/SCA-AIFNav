@@ -20,6 +20,9 @@ from sca_aifnav_core.spatial_memory import (
 from sca_aifnav_ros.image_adapter import (
     ImageAdapter,
 )
+from sca_aifnav_ros.navigation_core_bridge import (
+    NavigationCoreBridge,
+)
 from sca_aifnav_ros.navigation_observation import (
     capture_navigation_observation as build_navigation_observation,
 )
@@ -201,6 +204,13 @@ class NavigationNode(Node):
         )
         self._latest_place_observation_id = None
         self._latest_navigation_observation = None
+
+        self._navigation_core_bridge = (
+            NavigationCoreBridge(
+                memory=self._place_memory
+            )
+        )
+        self._latest_navigation_decision = None
 
         self._latest_odometry_state = None
         self._latest_physical_yaw_rad = None
@@ -450,6 +460,18 @@ class NavigationNode(Node):
         return (
             self._latest_navigation_observation
             is not None
+        )
+
+    @property
+    def latest_navigation_decision(self):
+        """Return the latest core learning-and-planning decision."""
+        return self._latest_navigation_decision
+
+    @property
+    def next_navigation_action_id(self):
+        """Return the next physical action proposed by the core."""
+        return (
+            self._navigation_core_bridge.next_action_id
         )
 
     @property
@@ -713,6 +735,7 @@ class NavigationNode(Node):
         self._latest_visual_observation = None
         self._latest_place_observation_id = None
         self._latest_navigation_observation = None
+        self._latest_navigation_decision = None
         self._panorama_coordinator = coordinator
 
         return True
@@ -871,6 +894,41 @@ class NavigationNode(Node):
         )
 
         return observation
+
+    def process_completed_navigation_cycle(
+        self,
+    ):
+        """Send one completed observation through the navigation core."""
+        if self._latest_navigation_decision is not None:
+            return self._latest_navigation_decision
+
+        observation = (
+            self.process_completed_navigation_observation()
+        )
+
+        if observation is None:
+            return None
+
+        decision = (
+            self._navigation_core_bridge.process_observation(
+                observation
+            )
+        )
+
+        self._latest_navigation_decision = (
+            decision
+        )
+
+        return decision
+
+    def record_executed_navigation_action(
+        self,
+        action_id: int,
+    ) -> None:
+        """Record completion of the core-planned physical action."""
+        self._navigation_core_bridge.record_executed_action(
+            action_id
+        )
 
     def _panorama_timer_callback(
         self,
