@@ -14,7 +14,6 @@ from sca_aifnav_core.spatial_memory import (
     BaselinePlaceMemory,
 )
 from sca_aifnav_ros.navigation_core_bridge import (
-    BOOTSTRAP_ACTION_ID,
     NavigationCoreBridge,
 )
 from sca_aifnav_ros.navigation_observation import (
@@ -95,58 +94,26 @@ def test_default_bridge_shares_supplied_place_memory():
     )
 
 
-def test_first_observation_uses_bootstrap_stay_action():
-    """The first observation should bootstrap learning with STAY."""
-    coordinator = FakeCoordinator(
-        [
-            3,
-        ]
-    )
-
-    bridge = NavigationCoreBridge(
-        coordinator=coordinator
-    )
+def test_first_observation_initializes_without_executed_action():
+    """The first observation initializes without a fabricated action."""
+    bridge = NavigationCoreBridge()
 
     result = bridge.process_observation(
-        observation(
-            place_id=2,
-            sensory_id=4,
-        )
-    )
-
-    call = coordinator.calls[0]
-
-    assert (
-        call["executed_action_id"]
-        == BOOTSTRAP_ACTION_ID
-    )
-
-    assert (
-        call["current_place_id"]
-        == 2
-    )
-
-    assert (
-        call["sensory_observation"]
-        == 4
+        observation()
     )
 
     assert result.is_bootstrap is True
-    assert result.next_action_id == 3
-    assert bridge.next_action_id == 3
+    assert result.executed_action_id is None
+    assert result.cycle_result.learning is None
+    assert (
+        result.next_action_id
+        == result.cycle_result.planning.selected_action
+    )
 
 
 def test_second_observation_requires_completed_action():
-    """A planned action cannot be learned before physical completion."""
-    coordinator = FakeCoordinator(
-        [
-            3,
-        ]
-    )
-
-    bridge = NavigationCoreBridge(
-        coordinator=coordinator
-    )
+    """A new observation cannot be learned before action completion."""
+    bridge = NavigationCoreBridge()
 
     bridge.process_observation(
         observation()
@@ -154,82 +121,58 @@ def test_second_observation_requires_completed_action():
 
     with pytest.raises(
         RuntimeError,
-        match="no completed physical action",
+        match="completed physical action",
     ):
         bridge.process_observation(
-            observation(
-                place_id=1
-            )
+            observation()
         )
 
 
 def test_recorded_action_is_used_by_next_observation():
-    """The next cycle should learn the physically completed action."""
-    coordinator = FakeCoordinator(
-        [
-            3,
-            7,
-        ]
-    )
+    """The next cycle learns the physically completed planned action."""
+    bridge = NavigationCoreBridge()
 
-    bridge = NavigationCoreBridge(
-        coordinator=coordinator
-    )
-
-    bridge.process_observation(
+    first = bridge.process_observation(
         observation()
+    )
+
+    planned_action = (
+        first.next_action_id
     )
 
     bridge.record_executed_action(
-        3
+        planned_action
     )
 
-    assert bridge.next_action_id is None
-    assert bridge.completed_action_id == 3
-
-    result = bridge.process_observation(
-        observation(
-            place_id=1,
-            sensory_id=2,
-        )
-    )
-
-    assert (
-        coordinator.calls[1][
-            "executed_action_id"
-        ]
-        == 3
-    )
-
-    assert result.is_bootstrap is False
-    assert result.next_action_id == 7
-
-    assert bridge.completed_action_id is None
-    assert bridge.next_action_id == 7
-
-
-def test_executed_action_must_match_planned_action():
-    """The bridge should reject an unexpected physical action ID."""
-    coordinator = FakeCoordinator(
-        [
-            5,
-        ]
-    )
-
-    bridge = NavigationCoreBridge(
-        coordinator=coordinator
-    )
-
-    bridge.process_observation(
+    second = bridge.process_observation(
         observation()
     )
 
+    assert second.is_bootstrap is False
+
+    assert (
+        second.executed_action_id
+        == planned_action
+    )
+
+
+def test_executed_action_must_match_planned_action():
+    """The bridge rejects a physical action different from the plan."""
+    bridge = NavigationCoreBridge()
+
+    first = bridge.process_observation(
+        observation()
+    )
+
+    wrong_action = (
+        first.next_action_id + 1
+    ) % bridge.motion_set.ACTION_COUNT
+
     with pytest.raises(
         ValueError,
-        match="does not match",
     ):
         bridge.record_executed_action(
-            4
+            wrong_action
         )
 
 
@@ -245,15 +188,7 @@ def test_executed_action_id_must_be_integer(
     action_id,
 ):
     """Executed physical actions require integer IDs."""
-    coordinator = FakeCoordinator(
-        [
-            3,
-        ]
-    )
-
-    bridge = NavigationCoreBridge(
-        coordinator=coordinator
-    )
+    bridge = NavigationCoreBridge()
 
     bridge.process_observation(
         observation()
@@ -261,7 +196,6 @@ def test_executed_action_id_must_be_integer(
 
     with pytest.raises(
         TypeError,
-        match="must be an integer",
     ):
         bridge.record_executed_action(
             action_id

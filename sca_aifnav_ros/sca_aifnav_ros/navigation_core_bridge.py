@@ -24,17 +24,12 @@ from sca_aifnav_ros.navigation_observation import (
 )
 
 
-BOOTSTRAP_ACTION_ID = (
-    BaselineMotionSet.ACTION_COUNT - 1
-)
-
-
 @dataclass(frozen=True)
 class NavigationCoreDecision:
     """Summarize one observation-to-planning core cycle."""
 
     observation: NavigationObservation
-    executed_action_id: int
+    executed_action_id: int | None
     next_action_id: Optional[int]
     cycle_result: NavigationCycleResult
     is_bootstrap: bool
@@ -121,6 +116,58 @@ class NavigationCoreBridge:
         """Return the most recently completed core decision."""
         return self._latest_decision
 
+    def _initialize_and_plan(
+        self,
+        observation: NavigationObservation,
+    ) -> NavigationCycleResult:
+        """Initialize the model before any physical action has occurred."""
+        from sca_aifnav_core.transition_node_update import (
+            update_cognitive_transition_nodes,
+        )
+
+        update_cognitive_transition_nodes(
+            state=observation.state,
+            obstacle_distances=(
+                observation.obstacle_distances
+            ),
+            memory=self.memory,
+            model=self.model,
+            motion_set=self.motion_set,
+            robot_dimension=(
+                self.coordinator.learning.robot_dimension
+            ),
+            max_steps=(
+                self.coordinator.learning
+                .max_lookahead_steps
+            ),
+        )
+
+        self.coordinator.learning.history.align_to_states(
+            self.model.num_states
+        )
+
+        self.model.enforce_stationary_transition()
+
+        self.coordinator.preferences.sync_dimensions(
+            self.model
+        )
+
+        preferences = (
+            self.coordinator.preferences.snapshot()
+        )
+
+        planning = self.coordinator.plan_current(
+            current_place_id=(
+                observation.place_observation
+            )
+        )
+
+        return NavigationCycleResult(
+            learning=None,
+            preferences=preferences,
+            planning=planning,
+        )
+
     def process_observation(
         self,
         observation: NavigationObservation,
@@ -139,9 +186,14 @@ class NavigationCoreBridge:
         )
 
         if is_bootstrap:
-            executed_action_id = (
-                BOOTSTRAP_ACTION_ID
+            executed_action_id = None
+
+            cycle_result = (
+                self._initialize_and_plan(
+                    observation
+                )
             )
+
         else:
             if self._completed_action_id is None:
                 raise RuntimeError(
@@ -153,26 +205,26 @@ class NavigationCoreBridge:
                 self._completed_action_id
             )
 
-        cycle_result = (
-            self.coordinator.step_and_plan(
-                state=observation.state,
-                sensory_observation=(
-                    observation.sensory_observation
-                ),
-                place_observation=(
-                    observation.place_observation
-                ),
-                executed_action_id=(
-                    executed_action_id
-                ),
-                obstacle_distances=(
-                    observation.obstacle_distances
-                ),
-                current_place_id=(
-                    observation.place_observation
-                ),
+            cycle_result = (
+                self.coordinator.step_and_plan(
+                    state=observation.state,
+                    sensory_observation=(
+                        observation.sensory_observation
+                    ),
+                    place_observation=(
+                        observation.place_observation
+                    ),
+                    executed_action_id=(
+                        executed_action_id
+                    ),
+                    obstacle_distances=(
+                        observation.obstacle_distances
+                    ),
+                    current_place_id=(
+                        observation.place_observation
+                    ),
+                )
             )
-        )
 
         next_action_id = (
             cycle_result.planning.selected_action

@@ -52,8 +52,77 @@ class FakeModelInterface:
         return self.target_place_id
 
 
+class _FakeHistory:
+    """Provide the initialization history interface."""
+
+    def align_to_states(
+        self,
+        num_states,
+    ):
+        """Accept model dimensional growth."""
+        return None
+
+
+class _FakeLearning:
+    """Provide baseline initialization parameters."""
+
+    robot_dimension = 0.25
+    max_lookahead_steps = 8
+
+    def __init__(
+        self,
+    ):
+        self.history = _FakeHistory()
+
+
+class _FakePreferences:
+    """Provide preference synchronization for bootstrap planning."""
+
+    def sync_dimensions(
+        self,
+        model,
+    ):
+        """Accept model dimensional changes."""
+        return None
+
+    def snapshot(
+        self,
+    ):
+        """Return a minimal preference snapshot."""
+        return None
+
+
+class _FakeModelInterface:
+    """Resolve one predetermined cognitive target."""
+
+    def __init__(
+        self,
+        target_place_id,
+    ):
+        self.target_place_id = (
+            target_place_id
+        )
+
+        self.calls = []
+
+    def get_next_place_id(
+        self,
+        current_place_id,
+        action_id,
+    ):
+        """Return the target configured by the test."""
+        self.calls.append(
+            (
+                current_place_id,
+                action_id,
+            )
+        )
+
+        return self.target_place_id
+
+
 class FakeCoordinator:
-    """Provide deterministic planning and target lookup."""
+    """Provide deterministic planning for target-resolution tests."""
 
     def __init__(
         self,
@@ -64,9 +133,31 @@ class FakeCoordinator:
             selected_action
         )
 
+        self.learning = (
+            _FakeLearning()
+        )
+
+        self.preferences = (
+            _FakePreferences()
+        )
+
         self.model_interface = (
-            FakeModelInterface(
+            _FakeModelInterface(
                 target_place_id
+            )
+        )
+
+    def plan_current(
+        self,
+        current_place_id=None,
+        possible_actions=None,
+        action_selection=None,
+        rng=None,
+    ):
+        """Return the action selected by the test."""
+        return SimpleNamespace(
+            selected_action=(
+                self.selected_action
             )
         )
 
@@ -74,13 +165,15 @@ class FakeCoordinator:
         self,
         **kwargs,
     ):
-        """Return one deterministic planning result."""
+        """Return deterministic planning after a learned action."""
         return SimpleNamespace(
+            learning=None,
+            preferences=None,
             planning=SimpleNamespace(
                 selected_action=(
                     self.selected_action
                 )
-            )
+            ),
         )
 
 
