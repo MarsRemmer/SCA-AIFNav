@@ -211,11 +211,7 @@ def test_timer_advances_active_rotation(
 
         assert (
             publisher.messages[-1].angular.z
-            == pytest.approx(
-                0.6 * (
-                    math.pi / 4.0
-                )
-            )
+            == pytest.approx(0.2)
         )
     finally:
         node.destroy_node()

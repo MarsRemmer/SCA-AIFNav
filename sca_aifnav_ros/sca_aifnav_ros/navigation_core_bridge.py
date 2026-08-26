@@ -72,6 +72,7 @@ class NavigationCoreBridge:
                     model=model,
                     memory=memory,
                     motion_set=motion_set,
+                    robot_dimension=0.3,
                     use_utility=False,
                     use_state_information_gain=True,
                     use_inductive_inference=False,
@@ -157,10 +158,29 @@ class NavigationCoreBridge:
             self.coordinator.preferences.snapshot()
         )
 
+        restrictive_actions = getattr(
+            self.coordinator,
+            "restrictive_possible_actions",
+            None,
+        )
+
+        possible_actions = None
+
+        if callable(restrictive_actions):
+            possible_actions = restrictive_actions(
+                current_place_id=(
+                    observation.place_observation
+                ),
+                obstacle_distances=(
+                    observation.obstacle_distances
+                ),
+            )
+
         planning = self.coordinator.plan_current(
             current_place_id=(
                 observation.place_observation
-            )
+            ),
+            possible_actions=possible_actions,
         )
 
         return NavigationCycleResult(

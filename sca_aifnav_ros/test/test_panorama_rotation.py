@@ -40,7 +40,7 @@ def test_runtime_baseline_parameters():
 
     assert (
         DEFAULT_MAX_ANGULAR_SPEED
-        == pytest.approx(1.0)
+        == pytest.approx(0.2)
     )
 
     assert (
@@ -93,7 +93,9 @@ def test_angular_speed_is_capped():
 
     assert (
         result.angular_speed_rad_s
-        == pytest.approx(1.0)
+        == pytest.approx(
+            DEFAULT_MAX_ANGULAR_SPEED
+        )
     )
 
 
@@ -212,9 +214,12 @@ def test_small_positive_goal_wraps_near_revolution_end():
     assert (
         result.angular_speed_rad_s
         == pytest.approx(
-            0.6 * (
-                2.0 * math.pi
-                - 5.8
+            min(
+                0.6 * (
+                    2.0 * math.pi
+                    - 5.8
+                ),
+                DEFAULT_MAX_ANGULAR_SPEED,
             )
         )
     )

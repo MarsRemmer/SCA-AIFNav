@@ -143,6 +143,77 @@ class BaselineNavigationCoordinator:
             self.model
         )
 
+    def restrictive_possible_actions(
+        self,
+        current_place_id: int,
+        obstacle_distances,
+    ):
+        """
+        Return currently executable root actions.
+
+        A directional action is retained only when the latest directional
+        obstacle distance reaches the first cognitive-node distance and the
+        direction resolves to an existing cognitive place. STAY is always
+        retained.
+        """
+        distances = tuple(
+            float(value)
+            for value in obstacle_distances
+        )
+
+        if (
+            len(distances)
+            != self.motion_set.DIRECTION_COUNT
+        ):
+            raise ValueError(
+                "obstacle_distances must contain "
+                "one value per directional action"
+            )
+
+        minimum_distance = (
+            self.memory.influence_radius
+            + self.learning.robot_dimension
+            / 2.0
+        )
+
+        possible_actions = []
+
+        for action_id in range(
+            self.motion_set.DIRECTION_COUNT
+        ):
+            distance = distances[
+                action_id
+            ]
+
+            # Using this form also rejects NaN.
+            if not distance >= minimum_distance:
+                continue
+
+            next_place_id = (
+                self.model_interface
+                .get_next_place_id(
+                    current_place_id=(
+                        current_place_id
+                    ),
+                    action_id=action_id,
+                )
+            )
+
+            if next_place_id < 0:
+                continue
+
+            possible_actions.append(
+                action_id
+            )
+
+        possible_actions.append(
+            self.model.stationary_action_id
+        )
+
+        return tuple(
+            possible_actions
+        )
+
     def plan_current(
         self,
         current_place_id: int,
@@ -238,6 +309,18 @@ class BaselineNavigationCoordinator:
         else:
             planning_place_id = (
                 current_place_id
+            )
+
+        if possible_actions is None:
+            possible_actions = (
+                self.restrictive_possible_actions(
+                    current_place_id=(
+                        planning_place_id
+                    ),
+                    obstacle_distances=(
+                        obstacle_distances
+                    ),
+                )
             )
 
         planning_result = self.plan_current(

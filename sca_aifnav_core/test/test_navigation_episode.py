@@ -55,6 +55,7 @@ def make_corridor_case():
         memory=memory,
         motion_set=motion_set,
         preferences=preferences,
+        robot_dimension=0.3,
         num_simulations=30,
     )
 
@@ -132,12 +133,6 @@ def run_closed_loop():
         goal_place_id,
     ) = make_corridor_case()
 
-    unknown_scan = np.full(
-        coordinator.motion_set.DIRECTION_COUNT,
-        np.nan,
-        dtype=float,
-    )
-
     current_place_id = root_place_id
 
     plan = coordinator.plan_current(
@@ -193,6 +188,20 @@ def run_closed_loop():
             ),
         )
 
+        corridor_scan = np.full(
+            coordinator.motion_set.DIRECTION_COUNT,
+            np.nan,
+            dtype=float,
+        )
+
+        # Expose only existing corridor neighbors.
+        # 0.66 m is just beyond the 0.65 m runtime first-node distance.
+        if next_place_id < goal_place_id:
+            corridor_scan[0] = 0.66
+
+        if next_place_id > root_place_id:
+            corridor_scan[6] = 0.66
+
         result = coordinator.step_and_plan(
             state=state,
             sensory_observation=0,
@@ -200,7 +209,7 @@ def run_closed_loop():
                 next_place_id
             ),
             executed_action_id=action_id,
-            obstacle_distances=unknown_scan,
+            obstacle_distances=corridor_scan,
             current_place_id=(
                 next_place_id
             ),
