@@ -55,6 +55,21 @@ class FakeVisualObserver:
 
         return self.result
 
+    initial_confidence_threshold = 0.9
+    confidence_decrement = 0.07
+    max_attempts = 5
+
+    def process_attempt(
+        self,
+        images,
+        confidence_threshold,
+        attempt_count,
+    ):
+        """Process one panorama attempt using the fake observer."""
+        return self.process(
+            images
+        )
+
 
 @pytest.fixture
 def ros_context():

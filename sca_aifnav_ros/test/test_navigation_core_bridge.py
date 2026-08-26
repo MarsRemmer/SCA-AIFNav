@@ -283,3 +283,14 @@ def test_no_action_can_be_recorded_before_planning():
         bridge.record_executed_action(
             0
         )
+
+
+def test_default_bridge_uses_exploration_navigation_mode():
+    """Default runtime should reproduce reference exploration mode."""
+    bridge = NavigationCoreBridge()
+
+    interface = bridge.coordinator.model_interface
+
+    assert interface.use_utility is False
+    assert interface.use_state_information_gain is True
+    assert interface.use_inductive_inference is False

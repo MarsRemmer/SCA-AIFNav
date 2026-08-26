@@ -106,6 +106,48 @@ class PanoramicVisualObserver:
         )
         self.max_attempts = max_attempts
 
+    def process_attempt(
+        self,
+        images,
+        confidence_threshold: float,
+        attempt_count: int,
+    ):
+        """Process one newly acquired panorama exactly once."""
+        images = tuple(images)
+
+        if len(images) == 0:
+            raise ValueError(
+                "panorama images cannot be empty"
+            )
+
+        (
+            observation_id,
+            match_scores,
+        ) = self.memory.process_images(
+            images,
+            confidence_threshold=(
+                confidence_threshold
+            ),
+        )
+
+        if (
+            not isinstance(observation_id, int)
+            or isinstance(observation_id, bool)
+        ):
+            return None
+
+        return VisualObservationResult(
+            observation_id=observation_id,
+            match_scores=tuple(
+                float(score)
+                for score in match_scores
+            ),
+            confidence_threshold=(
+                confidence_threshold
+            ),
+            attempt_count=attempt_count,
+        )
+
     def process(
         self,
         images,

@@ -843,7 +843,7 @@ class NavigationNode(Node):
     def process_completed_visual_observation(
         self,
     ):
-        """Convert one completed panorama into a discrete observation."""
+        """Convert newly acquired panoramas into one visual observation."""
         if self._latest_visual_observation is not None:
             return self._latest_visual_observation
 
@@ -852,13 +852,75 @@ class NavigationNode(Node):
         if images is None:
             return None
 
-        result = self._visual_observer.process(
-            images
+        attempt_count = getattr(
+            self,
+            "_visual_retry_attempt_count",
+            0,
+        ) + 1
+
+        confidence_threshold = getattr(
+            self,
+            "_visual_retry_confidence_threshold",
+            self._visual_observer.initial_confidence_threshold,
         )
 
-        self._latest_visual_observation = result
+        result = self._visual_observer.process_attempt(
+            images=images,
+            confidence_threshold=(
+                confidence_threshold
+            ),
+            attempt_count=attempt_count,
+        )
 
-        return result
+        if result is not None:
+            if attempt_count > 1:
+                self._visual_observer.memory.reset_stitcher()
+
+            self._visual_retry_attempt_count = 0
+            self._visual_retry_confidence_threshold = (
+                self._visual_observer
+                .initial_confidence_threshold
+            )
+
+            self._latest_visual_observation = result
+
+            return result
+
+        self._visual_retry_attempt_count = (
+            attempt_count
+        )
+
+        if (
+            attempt_count
+            >= self._visual_observer.max_attempts
+        ):
+            self._visual_observer.memory.reset_stitcher()
+
+            self._visual_retry_attempt_count = 0
+            self._visual_retry_confidence_threshold = (
+                self._visual_observer
+                .initial_confidence_threshold
+            )
+
+            raise ValueError(
+                "unable to create a visual observation "
+                "after repeated panorama acquisitions"
+            )
+
+        self._visual_retry_confidence_threshold = (
+            confidence_threshold
+            - self._visual_observer.confidence_decrement
+        )
+
+        started = self.start_panorama_acquisition()
+
+        if not started:
+            raise RuntimeError(
+                "unable to restart panorama acquisition "
+                "for visual retry"
+            )
+
+        return None
 
     def resolve_current_place_observation(
         self,
