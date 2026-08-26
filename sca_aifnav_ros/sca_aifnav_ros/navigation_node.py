@@ -14,6 +14,9 @@ from sca_aifnav_core.baseline_odometry import (
 from sca_aifnav_core.motion_primitives import (
     BaselineMotionSet,
 )
+from sca_aifnav_core.spatial_memory import (
+    BaselinePlaceMemory,
+)
 from sca_aifnav_ros.image_adapter import (
     ImageAdapter,
 )
@@ -189,6 +192,11 @@ class NavigationNode(Node):
             PanoramicVisualObserver()
         )
         self._latest_visual_observation = None
+
+        self._place_memory = (
+            BaselinePlaceMemory()
+        )
+        self._latest_place_observation_id = None
 
         self._latest_odometry_state = None
         self._latest_physical_yaw_rad = None
@@ -405,6 +413,26 @@ class NavigationNode(Node):
 
         return (
             self._latest_visual_observation.observation_id
+        )
+
+    @property
+    def has_place_observation(self) -> bool:
+        """Return whether the current cycle has a place observation."""
+        return (
+            self._latest_place_observation_id
+            is not None
+        )
+
+    @property
+    def place_observation_id(self):
+        """Return the latest discrete place observation ID."""
+        return self._latest_place_observation_id
+
+    @property
+    def place_memory_size(self) -> int:
+        """Return the number of stored cognitive places."""
+        return len(
+            self._place_memory
         )
 
     @property
@@ -666,6 +694,7 @@ class NavigationNode(Node):
         )
 
         self._latest_visual_observation = None
+        self._latest_place_observation_id = None
         self._panorama_coordinator = coordinator
 
         return True
@@ -749,6 +778,29 @@ class NavigationNode(Node):
         self._latest_visual_observation = result
 
         return result
+
+    def resolve_current_place_observation(
+        self,
+    ):
+        """Resolve the current cognitive position to one place ID."""
+        if self._latest_place_observation_id is not None:
+            return self._latest_place_observation_id
+
+        if (
+            self._latest_visual_observation is None
+            or self._latest_odometry_state is None
+        ):
+            return None
+
+        place_id = self._place_memory.resolve_place(
+            self._latest_odometry_state.position
+        )
+
+        self._latest_place_observation_id = (
+            place_id
+        )
+
+        return place_id
 
     def _panorama_timer_callback(
         self,
