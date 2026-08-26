@@ -25,6 +25,7 @@ from sca_aifnav_ros.navigation_core_bridge import (
 )
 from sca_aifnav_ros.navigation_motion_executor import (
     NavigationMotionExecutor,
+    NavigationMotionUpdate,
 )
 from sca_aifnav_ros.navigation_observation import (
     capture_navigation_observation as build_navigation_observation,
@@ -222,6 +223,7 @@ class NavigationNode(Node):
         self._latest_scan_message = None
 
         self._autonomous_navigation_active = False
+        self._returning_after_failed_action = False
 
         self._navigation_control_timer = (
             self.create_timer(
@@ -1110,6 +1112,73 @@ class NavigationNode(Node):
             update
         )
 
+        failed_action_id = getattr(
+            update,
+            "failed_action_id",
+            None,
+        )
+
+        # A physical return is not a cognitive navigation action.
+        # Whether the return itself succeeds or aborts, the fixed
+        # reference proceeds to replanning from the restored source.
+        if self._returning_after_failed_action:
+            return_finished = (
+                update.completed_action_id
+                is not None
+                or failed_action_id is not None
+            )
+
+            if not return_finished:
+                return update
+
+            self._returning_after_failed_action = False
+
+            try:
+                self._navigation_core_bridge.replan_after_failed_action()
+
+                started = (
+                    self.start_planned_navigation_action()
+                )
+
+                if not started:
+                    raise RuntimeError(
+                        "failed-action replanning produced "
+                        "no executable target"
+                    )
+
+            except RuntimeError:
+                self._autonomous_navigation_active = False
+                raise
+
+            recovery_update = NavigationMotionUpdate(
+                action_id=update.action_id,
+                command=update.command,
+                completed_action_id=None,
+                failed_action_id=None,
+            )
+
+            self._latest_navigation_motion_update = (
+                recovery_update
+            )
+
+            return recovery_update
+
+        # A failed navigation action must never be learned as an
+        # executed action at the next observation.
+        if failed_action_id is not None:
+            failed_target = (
+                self._navigation_core_bridge
+                .record_failed_action(
+                    failed_action_id
+                )
+            )
+
+            self._start_failed_action_return(
+                failed_target
+            )
+
+            return update
+
         if (
             update.completed_action_id
             is not None
@@ -1119,6 +1188,47 @@ class NavigationNode(Node):
             )
 
         return update
+
+    def _start_failed_action_return(
+        self,
+        failed_target,
+    ) -> None:
+        """Return physically to the source place of a failed action."""
+        from sca_aifnav_ros.navigation_core_bridge import (
+            NavigationActionTarget,
+        )
+
+        source_position = self._place_memory.place(
+            failed_target.source_place_id
+        )
+
+        if source_position is None:
+            raise RuntimeError(
+                "failed action source place is missing "
+                "from cognitive memory"
+            )
+
+        return_target = NavigationActionTarget(
+            action_id=(
+                failed_target.action_id
+            ),
+            source_place_id=(
+                failed_target.target_place_id
+            ),
+            target_place_id=(
+                failed_target.source_place_id
+            ),
+            target_position=(
+                source_position
+            ),
+            is_stationary=False,
+        )
+
+        self._navigation_motion_executor.start(
+            return_target
+        )
+
+        self._returning_after_failed_action = True
 
     def start_autonomous_navigation(
         self,

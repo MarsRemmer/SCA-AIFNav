@@ -87,6 +87,7 @@ class NavigationCoreBridge:
         self._planned_action_id = None
         self._completed_action_id = None
         self._latest_decision = None
+        self._failure_possible_actions = None
 
     @property
     def is_initialized(
@@ -234,6 +235,9 @@ class NavigationCoreBridge:
         self._planned_action_id = (
             next_action_id
         )
+
+        self._failure_possible_actions = None
+
         self._cycle_count += 1
 
         decision = NavigationCoreDecision(
@@ -318,6 +322,186 @@ class NavigationCoreBridge:
                 primitive.is_stationary
             ),
         )
+
+    @property
+    def remaining_retry_actions(
+        self,
+    ):
+        """Return actions still available after physical failures."""
+        if self._failure_possible_actions is None:
+            return None
+
+        return tuple(
+            self._failure_possible_actions
+        )
+
+    def record_failed_action(
+        self,
+        action_id: int,
+    ) -> NavigationActionTarget:
+        """Learn negative transition evidence for a failed action."""
+        if (
+            isinstance(action_id, bool)
+            or not isinstance(action_id, int)
+        ):
+            raise TypeError(
+                "action_id must be an integer"
+            )
+
+        if self._planned_action_id is None:
+            raise RuntimeError(
+                "no planned action is awaiting execution"
+            )
+
+        if action_id != self._planned_action_id:
+            raise ValueError(
+                "failed action does not match "
+                "the planned action"
+            )
+
+        if not self.motion_set.is_directional(
+            action_id
+        ):
+            raise ValueError(
+                "only directional navigation actions can fail"
+            )
+
+        target = (
+            self.resolve_planned_action_target()
+        )
+
+        if target is None:
+            raise RuntimeError(
+                "failed action has no cognitive target"
+            )
+
+        from sca_aifnav_core.obstacle_evidence import (
+            discourage_known_unreachable_link,
+        )
+
+        current_belief = (
+            self.model.state_belief.copy()
+        )
+
+        predicted_prior = (
+            self.model.predicted_state_prior(
+                action_id=action_id,
+                belief=current_belief,
+            )
+        )
+
+        unreachable_belief = (
+            self.model.infer_state_belief(
+                place_observation=(
+                    target.target_place_id
+                ),
+                prior=predicted_prior,
+            )
+        )
+
+        discourage_known_unreachable_link(
+            model=self.model,
+            current_belief=current_belief,
+            unreachable_belief=(
+                unreachable_belief
+            ),
+            action_id=action_id,
+            motion_set=self.motion_set,
+        )
+
+        if self._failure_possible_actions is None:
+            planning = (
+                self._latest_decision
+                .cycle_result
+                .planning
+            )
+
+            available_actions = getattr(
+                planning,
+                "available_actions",
+                None,
+            )
+
+            if available_actions is None:
+                raise RuntimeError(
+                    "current planning result does not expose "
+                    "available actions"
+                )
+
+            self._failure_possible_actions = [
+                int(candidate)
+                for candidate in available_actions
+            ]
+
+        self._failure_possible_actions = [
+            candidate
+            for candidate
+            in self._failure_possible_actions
+            if candidate != action_id
+        ]
+
+        self._planned_action_id = None
+
+        return target
+
+    def replan_after_failed_action(
+        self,
+    ):
+        """Replan from the previous place using untried actions only."""
+        if self._latest_decision is None:
+            raise RuntimeError(
+                "no navigation decision exists for replanning"
+            )
+
+        if self._planned_action_id is not None:
+            raise RuntimeError(
+                "the failed action must be cleared "
+                "before replanning"
+            )
+
+        if self._failure_possible_actions is None:
+            raise RuntimeError(
+                "no failed-action retry lifecycle is active"
+            )
+
+        if not self._failure_possible_actions:
+            raise RuntimeError(
+                "no navigation actions remain after failures"
+            )
+
+        source_place_id = (
+            self._latest_decision
+            .observation
+            .place_observation
+        )
+
+        planning = self.coordinator.plan_current(
+            current_place_id=(
+                source_place_id
+            ),
+            possible_actions=tuple(
+                self._failure_possible_actions
+            ),
+        )
+
+        selected_action = int(
+            planning.selected_action
+        )
+
+        if (
+            selected_action
+            not in self._failure_possible_actions
+        ):
+            raise RuntimeError(
+                "replanned action is outside "
+                "the remaining action set"
+            )
+
+        self._planned_action_id = (
+            selected_action
+        )
+
+        return planning
 
     def record_executed_action(
         self,
