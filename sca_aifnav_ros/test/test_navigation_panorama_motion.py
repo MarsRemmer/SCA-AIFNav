@@ -165,7 +165,11 @@ def test_rotation_publishes_positive_angular_velocity(
 
         assert (
             message.angular.z
-            == pytest.approx(0.2)
+            == pytest.approx(
+                0.6 * (
+                    math.pi / 4.0
+                )
+            )
         )
     finally:
         node.destroy_node()

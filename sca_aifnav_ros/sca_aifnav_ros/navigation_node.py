@@ -119,7 +119,7 @@ class NavigationNode(Node):
 
         self.declare_parameter(
             "panorama_control_period_sec",
-            0.05,
+            1.0,
         )
 
         odom_topic = self.get_parameter(

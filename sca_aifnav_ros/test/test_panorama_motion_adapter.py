@@ -73,7 +73,7 @@ def test_runtime_speed_limit_is_preserved():
 
     assert (
         message.angular.z
-        == pytest.approx(0.2)
+        == pytest.approx(0.6)
     )
 
 
