@@ -93,8 +93,8 @@ def test_first_odometry_message_initializes_state(
         assert node.has_odometry is True
 
         assert state.position == Point2D(
-            3.0,
-            -2.0,
+            0.0,
+            0.0,
         )
 
         assert (
@@ -133,8 +133,8 @@ def test_consecutive_messages_update_travel_heading(
         )
 
         assert state.position == Point2D(
+            0.0,
             1.0,
-            2.0,
         )
 
         assert (

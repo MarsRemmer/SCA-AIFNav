@@ -232,11 +232,11 @@ def test_complete_sensor_state_creates_snapshot(
 
         assert (
             snapshot.state.position.x
-            == pytest.approx(1.0)
+            == pytest.approx(0.0)
         )
         assert (
             snapshot.state.position.y
-            == pytest.approx(2.0)
+            == pytest.approx(0.0)
         )
 
         assert (
@@ -318,11 +318,11 @@ def test_snapshot_remains_frozen_after_new_sensor_updates(
 
         assert (
             first_snapshot.state.position.x
-            == pytest.approx(1.0)
+            == pytest.approx(0.0)
         )
         assert (
             first_snapshot.state.position.y
-            == pytest.approx(2.0)
+            == pytest.approx(0.0)
         )
 
         assert (
@@ -425,11 +425,11 @@ def test_new_snapshot_uses_latest_sensor_updates(
 
         assert (
             second_snapshot.state.position.x
-            == pytest.approx(5.0)
+            == pytest.approx(4.0)
         )
         assert (
             second_snapshot.state.position.y
-            == pytest.approx(6.0)
+            == pytest.approx(4.0)
         )
 
         assert (

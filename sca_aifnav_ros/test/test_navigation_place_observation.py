@@ -155,10 +155,10 @@ def test_first_completed_observation_creates_first_place(
         )
 
         assert place.x == pytest.approx(
-            1.0
+            0.0
         )
         assert place.y == pytest.approx(
-            2.0
+            0.0
         )
     finally:
         node.destroy_node()

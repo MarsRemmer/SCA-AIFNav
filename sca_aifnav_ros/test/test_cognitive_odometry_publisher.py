@@ -139,11 +139,11 @@ def test_callback_publishes_first_state(
         message = publisher.messages[0]
 
         assert message.x == pytest.approx(
-            3.0
+            0.0
         )
 
         assert message.y == pytest.approx(
-            -2.0
+            0.0
         )
 
         assert message.z == pytest.approx(
@@ -187,11 +187,11 @@ def test_second_callback_publishes_travel_heading(
         message = publisher.messages[-1]
 
         assert message.x == pytest.approx(
-            3.0
+            0.0
         )
 
         assert message.y == pytest.approx(
-            -1.0
+            1.0
         )
 
         assert message.z == pytest.approx(

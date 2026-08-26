@@ -56,8 +56,8 @@ def test_first_message_establishes_reference_without_motion():
     assert adapter.initialized is True
 
     assert state.position == Point2D(
-        3.0,
-        -2.0,
+        0.0,
+        0.0,
     )
 
     assert state.travel_heading_rad == pytest.approx(
@@ -83,8 +83,8 @@ def test_eastward_displacement_has_zero_heading():
     )
 
     assert state.position == Point2D(
-        2.0,
         1.0,
+        0.0,
     )
 
     assert state.travel_heading_rad == pytest.approx(
@@ -222,12 +222,36 @@ def test_reset_requires_a_new_reference_message():
     )
 
     assert state.position == Point2D(
-        8.0,
-        9.0,
+        0.0,
+        0.0,
     )
 
     assert state.travel_heading_rad == pytest.approx(
         0.0
+    )
+
+
+def test_positions_are_relative_to_first_raw_odometry():
+    """Later positions should be expressed relative to the first frame."""
+    adapter = OdometryAdapter()
+
+    adapter.update(
+        odometry_message(
+            3.0,
+            -2.0,
+        )
+    )
+
+    state = adapter.update(
+        odometry_message(
+            4.5,
+            -1.5,
+        )
+    )
+
+    assert state.position == Point2D(
+        1.5,
+        0.5,
     )
 
 

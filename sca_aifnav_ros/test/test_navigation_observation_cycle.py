@@ -157,12 +157,12 @@ def test_completed_cycle_maps_directly_to_core_inputs(
 
         assert (
             observation.state.position.x
-            == pytest.approx(1.0)
+            == pytest.approx(0.0)
         )
 
         assert (
             observation.state.position.y
-            == pytest.approx(2.0)
+            == pytest.approx(0.0)
         )
 
         assert (
@@ -231,12 +231,12 @@ def test_completed_cycle_is_frozen_from_later_sensor_updates(
 
         assert (
             first.state.position.x
-            == pytest.approx(1.0)
+            == pytest.approx(0.0)
         )
 
         assert (
             first.state.position.y
-            == pytest.approx(2.0)
+            == pytest.approx(0.0)
         )
 
         assert (
