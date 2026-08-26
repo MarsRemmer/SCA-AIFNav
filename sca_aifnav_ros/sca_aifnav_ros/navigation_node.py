@@ -23,6 +23,9 @@ from sca_aifnav_ros.image_adapter import (
 from sca_aifnav_ros.navigation_core_bridge import (
     NavigationCoreBridge,
 )
+from sca_aifnav_ros.navigation_motion_executor import (
+    NavigationMotionExecutor,
+)
 from sca_aifnav_ros.navigation_observation import (
     capture_navigation_observation as build_navigation_observation,
 )
@@ -211,6 +214,12 @@ class NavigationNode(Node):
             )
         )
         self._latest_navigation_decision = None
+
+        self._navigation_motion_executor = (
+            NavigationMotionExecutor()
+        )
+        self._latest_navigation_motion_update = None
+        self._latest_scan_message = None
 
         self._latest_odometry_state = None
         self._latest_physical_yaw_rad = None
@@ -475,6 +484,21 @@ class NavigationNode(Node):
         )
 
     @property
+    def navigation_action_active(self) -> bool:
+        """Return whether one physical navigation action is active."""
+        return (
+            self._navigation_motion_executor
+            .is_active
+        )
+
+    @property
+    def latest_navigation_motion_update(self):
+        """Return the latest low-level navigation motion update."""
+        return (
+            self._latest_navigation_motion_update
+        )
+
+    @property
     def sensor_snapshot_ready(self) -> bool:
         """Return whether all navigation sensor inputs are available."""
         return (
@@ -572,6 +596,8 @@ class NavigationNode(Node):
         message: LaserScan,
     ) -> None:
         """Convert and publish one laser scan when orientation is known."""
+        self._latest_scan_message = message
+
         if self._latest_physical_yaw_rad is None:
             return
 
@@ -929,6 +955,94 @@ class NavigationNode(Node):
         self._navigation_core_bridge.record_executed_action(
             action_id
         )
+
+    def start_planned_navigation_action(
+        self,
+    ) -> bool:
+        """Start executing the action currently proposed by the core."""
+        target = (
+            self._navigation_core_bridge
+            .resolve_planned_action_target()
+        )
+
+        if target is None:
+            return False
+
+        self._navigation_motion_executor.start(
+            target
+        )
+
+        self._latest_navigation_motion_update = None
+
+        return True
+
+    def step_navigation_action(
+        self,
+    ):
+        """Advance the current physical navigation action once."""
+        if not self._navigation_motion_executor.is_active:
+            return None
+
+        target = (
+            self._navigation_motion_executor
+            .active_target
+        )
+
+        if target.is_stationary:
+            update = (
+                self._navigation_motion_executor.step()
+            )
+
+        else:
+            if (
+                self._latest_odometry_state is None
+                or self._latest_physical_yaw_rad is None
+                or self._latest_scan_message is None
+            ):
+                return None
+
+            update = (
+                self._navigation_motion_executor.step(
+                    current_position=(
+                        self._latest_odometry_state
+                        .position
+                    ),
+                    physical_yaw_rad=(
+                        self._latest_physical_yaw_rad
+                    ),
+                    scan=(
+                        self._latest_scan_message
+                    ),
+                )
+            )
+
+        command = update.command
+
+        message = Twist()
+        message.linear.x = (
+            command.linear_speed
+        )
+        message.angular.z = (
+            command.angular_speed
+        )
+
+        self._cmd_vel_publisher.publish(
+            message
+        )
+
+        self._latest_navigation_motion_update = (
+            update
+        )
+
+        if (
+            update.completed_action_id
+            is not None
+        ):
+            self.record_executed_navigation_action(
+                update.completed_action_id
+            )
+
+        return update
 
     def _panorama_timer_callback(
         self,
