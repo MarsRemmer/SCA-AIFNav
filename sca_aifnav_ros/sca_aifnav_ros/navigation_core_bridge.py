@@ -13,6 +13,9 @@ from sca_aifnav_core.navigation_cycle import (
     BaselineNavigationCoordinator,
     NavigationCycleResult,
 )
+from sca_aifnav_core.planar_geometry import (
+    Point2D,
+)
 from sca_aifnav_core.spatial_memory import (
     BaselinePlaceMemory,
 )
@@ -35,6 +38,17 @@ class NavigationCoreDecision:
     next_action_id: Optional[int]
     cycle_result: NavigationCycleResult
     is_bootstrap: bool
+
+
+@dataclass(frozen=True)
+class NavigationActionTarget:
+    """Describe the cognitive target of one planned physical action."""
+
+    action_id: int
+    source_place_id: int
+    target_place_id: int
+    target_position: Point2D
+    is_stationary: bool
 
 
 class NavigationCoreBridge:
@@ -184,6 +198,71 @@ class NavigationCoreBridge:
         self._latest_decision = decision
 
         return decision
+
+    def resolve_planned_action_target(
+        self,
+    ):
+        """Resolve the currently planned action to its cognitive target."""
+        if (
+            self._latest_decision is None
+            or self._planned_action_id is None
+        ):
+            return None
+
+        action_id = self._planned_action_id
+
+        source_place_id = (
+            self._latest_decision
+            .observation
+            .place_observation
+        )
+
+        target_place_id = (
+            self.coordinator
+            .model_interface
+            .get_next_place_id(
+                current_place_id=(
+                    source_place_id
+                ),
+                action_id=action_id,
+            )
+        )
+
+        if target_place_id < 0:
+            raise RuntimeError(
+                "planned action does not resolve "
+                "to a known cognitive place"
+            )
+
+        target_position = self.memory.place(
+            target_place_id
+        )
+
+        if target_position is None:
+            raise RuntimeError(
+                "planned target place is missing "
+                "from cognitive memory"
+            )
+
+        primitive = self.motion_set.action(
+            action_id
+        )
+
+        return NavigationActionTarget(
+            action_id=action_id,
+            source_place_id=(
+                source_place_id
+            ),
+            target_place_id=(
+                target_place_id
+            ),
+            target_position=(
+                target_position
+            ),
+            is_stationary=(
+                primitive.is_stationary
+            ),
+        )
 
     def record_executed_action(
         self,
