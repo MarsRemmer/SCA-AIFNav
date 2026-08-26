@@ -20,6 +20,9 @@ from sca_aifnav_core.spatial_memory import (
 from sca_aifnav_ros.image_adapter import (
     ImageAdapter,
 )
+from sca_aifnav_ros.navigation_observation import (
+    capture_navigation_observation as build_navigation_observation,
+)
 from sca_aifnav_ros.obstacle_scan_adapter import (
     ObstacleScanAdapter,
 )
@@ -197,6 +200,7 @@ class NavigationNode(Node):
             BaselinePlaceMemory()
         )
         self._latest_place_observation_id = None
+        self._latest_navigation_observation = None
 
         self._latest_odometry_state = None
         self._latest_physical_yaw_rad = None
@@ -433,6 +437,19 @@ class NavigationNode(Node):
         """Return the number of stored cognitive places."""
         return len(
             self._place_memory
+        )
+
+    @property
+    def latest_navigation_observation(self):
+        """Return the latest completed core-facing observation."""
+        return self._latest_navigation_observation
+
+    @property
+    def has_navigation_observation(self) -> bool:
+        """Return whether one complete navigation observation exists."""
+        return (
+            self._latest_navigation_observation
+            is not None
         )
 
     @property
@@ -695,6 +712,7 @@ class NavigationNode(Node):
 
         self._latest_visual_observation = None
         self._latest_place_observation_id = None
+        self._latest_navigation_observation = None
         self._panorama_coordinator = coordinator
 
         return True
@@ -801,6 +819,58 @@ class NavigationNode(Node):
         )
 
         return place_id
+
+    def process_completed_navigation_observation(
+        self,
+    ):
+        """Assemble one completed observation for the navigation core."""
+        if self._latest_navigation_observation is not None:
+            return self._latest_navigation_observation
+
+        if (
+            self._latest_odometry_state is None
+            or self._latest_obstacle_distances is None
+        ):
+            return None
+
+        visual_result = (
+            self.process_completed_visual_observation()
+        )
+
+        if visual_result is None:
+            return None
+
+        place_id = (
+            self.resolve_current_place_observation()
+        )
+
+        if place_id is None:
+            return None
+
+        observation = build_navigation_observation(
+            state=self._latest_odometry_state,
+            sensory_observation=(
+                visual_result.observation_id
+            ),
+            place_observation=(
+                place_id
+            ),
+            obstacle_distances=(
+                self._latest_obstacle_distances
+            ),
+            odometry_revision=(
+                self._odometry_revision
+            ),
+            scan_revision=(
+                self._scan_revision
+            ),
+        )
+
+        self._latest_navigation_observation = (
+            observation
+        )
+
+        return observation
 
     def _panorama_timer_callback(
         self,
