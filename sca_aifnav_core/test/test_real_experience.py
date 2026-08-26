@@ -278,3 +278,46 @@ def test_invalid_previous_belief_is_rejected(
             ),
             motion_set=motion_set,
         )
+
+
+def test_new_sensory_observation_expands_before_inference():
+    """A newly created visual ID must be usable in the same real step."""
+    model = BaselineGenerativeModel(
+        sensory_observations=2,
+        place_observations=2,
+        num_states=2,
+    )
+
+    motion_set = BaselineMotionSet()
+
+    previous_belief = (
+        model.state_belief.copy()
+    )
+
+    result = update_real_experience(
+        model=model,
+        sensory_observation=2,
+        place_observation=0,
+        action_id=12,
+        previous_belief=previous_belief,
+        motion_set=motion_set,
+    )
+
+    assert model.sensory_observations == 3
+    assert model.sensory_likelihood.shape == (
+        3,
+        2,
+    )
+
+    assert result.preliminary_belief.shape == (
+        2,
+    )
+
+    assert result.posterior_belief.shape == (
+        2,
+    )
+
+    assert np.isclose(
+        result.posterior_belief.sum(),
+        1.0,
+    )

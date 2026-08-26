@@ -6,6 +6,9 @@ from typing import Optional
 import numpy as np
 
 from sca_aifnav_core.generative_model import BaselineGenerativeModel
+from sca_aifnav_core.probability_tables import (
+    expand_likelihood_table,
+)
 from sca_aifnav_core.motion_primitives import BaselineMotionSet
 from sca_aifnav_core.observation_learning import (
     learn_multimodal_observation,
@@ -44,6 +47,12 @@ def update_real_experience(
     infer_states without an action in agent_step_update. Transition learning
     then compares that inferred belief with the stored previous belief.
     """
+    _ensure_observation_capacity(
+        model=model,
+        sensory_observation=sensory_observation,
+        place_observation=place_observation,
+    )
+
     preliminary = _infer_from_uniform_prior(
         model=model,
         sensory_observation=sensory_observation,
@@ -118,6 +127,88 @@ def update_real_experience(
         transition_updated=transition_updated,
         reverse_transition_updated=reverse_updated,
         reverse_action_id=reverse_action_id,
+    )
+
+
+def _ensure_observation_capacity(
+    model: BaselineGenerativeModel,
+    sensory_observation: int,
+    place_observation: int,
+) -> None:
+    """
+    Expand observation dimensions before inference.
+
+    The reference runtime updates observation-model dimensions before
+    attempting inference with a newly observed visual or place identifier.
+    Visual observations use the small unknown likelihood for new rows,
+    whereas place observations use the ordinary observation expansion.
+    """
+    if (
+        isinstance(sensory_observation, bool)
+        or not isinstance(sensory_observation, int)
+    ):
+        raise TypeError(
+            "sensory_observation must be an integer"
+        )
+
+    if (
+        isinstance(place_observation, bool)
+        or not isinstance(place_observation, int)
+    ):
+        raise TypeError(
+            "place_observation must be an integer"
+        )
+
+    if sensory_observation < 0:
+        raise ValueError(
+            "sensory_observation must be non-negative"
+        )
+
+    if place_observation < 0:
+        raise ValueError(
+            "place_observation must be non-negative"
+        )
+
+    sensory_addition = max(
+        0,
+        sensory_observation
+        + 1
+        - model.sensory_observations,
+    )
+
+    place_addition = max(
+        0,
+        place_observation
+        + 1
+        - model.place_observations,
+    )
+
+    if sensory_addition > 0:
+        model.sensory_likelihood = (
+            expand_likelihood_table(
+                model.sensory_likelihood,
+                add_observations=sensory_addition,
+                null_probability=True,
+            )
+        )
+
+    if place_addition > 0:
+        model.place_likelihood = (
+            expand_likelihood_table(
+                model.place_likelihood,
+                add_observations=place_addition,
+                null_probability=False,
+            )
+        )
+
+    # The reference dimension-update path rebuilds the Dirichlet-like
+    # observation parameters after checking observation dimensions.
+    model.sensory_concentration = np.ones_like(
+        model.sensory_likelihood
+    )
+
+    model.place_concentration = np.ones_like(
+        model.place_likelihood
     )
 
 
