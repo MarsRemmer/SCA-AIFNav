@@ -223,6 +223,71 @@ class BaselineGenerativeModel:
             @ belief
         )
 
+    def get_confident_state_index(
+        self,
+        z_score: float,
+        min_z_score: float = 2.0,
+        observation_count: int = 1,
+    ) -> int:
+        """Return the uniquely outstanding posterior state, if any."""
+        belief = np.asarray(
+            self.state_belief,
+            dtype=float,
+        )
+
+        state_index = -1
+
+        mean = np.mean(
+            belief
+        )
+
+        std_dev = np.std(
+            belief
+        )
+
+        with np.errstate(
+            divide="ignore",
+            invalid="ignore",
+        ):
+            z_scores = (
+                belief - mean
+            ) / std_dev
+
+        outlier_indices = np.where(
+            np.abs(z_scores)
+            > z_score
+        )[0]
+
+        min_outlier_indices = np.where(
+            np.abs(z_scores)
+            > min_z_score
+        )[0]
+
+        has_multiple_modalities = (
+            self.sensory_likelihood is not None
+            and self.place_likelihood is not None
+        )
+
+        # Preserve the runtime branch semantics used by the baseline.
+        if (
+            len(outlier_indices) >= 0
+            and observation_count < 2
+            and has_multiple_modalities
+        ):
+            if len(outlier_indices) == 1:
+                state_index = int(
+                    outlier_indices[0]
+                )
+
+        elif (
+            len(min_outlier_indices) == 0
+            and observation_count < 2
+            and has_multiple_modalities
+        ):
+            state_index = -2
+
+        return state_index
+
     def register_place_observation(
         self,
         place_id: int,
@@ -300,13 +365,13 @@ class BaselineGenerativeModel:
         ] = 1.0
 
     def _reset_likelihood_concentrations(self) -> None:
-        """Reset observation Dirichlet concentrations to one."""
-        self.sensory_concentration = np.ones_like(
-            self.sensory_likelihood
+        """Rebuild observation Dirichlet parameters from likelihoods."""
+        self.sensory_concentration = (
+            self.sensory_likelihood.copy()
         )
 
-        self.place_concentration = np.ones_like(
-            self.place_likelihood
+        self.place_concentration = (
+            self.place_likelihood.copy()
         )
 
     def _synchronize_transition_dimension(self) -> None:

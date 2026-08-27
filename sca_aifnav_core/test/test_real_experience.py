@@ -156,7 +156,7 @@ def test_real_observation_updates_sensory_pA(
         1,
         1,
     ] == pytest.approx(
-        6.0
+        5.01
     )
 
 

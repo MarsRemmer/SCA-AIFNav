@@ -278,6 +278,56 @@ class NavigationCoreBridge:
 
         return decision
 
+    def _planning_source_place_id(
+        self,
+    ) -> int:
+        """Return the cognitive place from which the current plan starts."""
+        if self._latest_decision is None:
+            raise RuntimeError(
+                "no navigation decision exists"
+            )
+
+        cycle_result = (
+            self._latest_decision
+            .cycle_result
+        )
+
+        posterior_place_id = getattr(
+            cycle_result,
+            "posterior_place_id",
+            -1,
+        )
+
+        if posterior_place_id >= 0:
+            return int(
+                posterior_place_id
+            )
+
+        planning = getattr(
+            cycle_result,
+            "planning",
+            None,
+        )
+
+        root_node = getattr(
+            planning,
+            "root_node",
+            None,
+        )
+
+        if root_node is not None:
+            return int(
+                root_node.place_id
+            )
+
+        # Compatibility fallback for lightweight test/fake planning
+        # objects that do not expose a real MCTS root.
+        return int(
+            self._latest_decision
+            .observation
+            .place_observation
+        )
+
     def resolve_planned_action_target(
         self,
     ):
@@ -291,9 +341,7 @@ class NavigationCoreBridge:
         action_id = self._planned_action_id
 
         source_place_id = (
-            self._latest_decision
-            .observation
-            .place_observation
+            self._planning_source_place_id()
         )
 
         target_place_id = (
@@ -490,9 +538,7 @@ class NavigationCoreBridge:
             )
 
         source_place_id = (
-            self._latest_decision
-            .observation
-            .place_observation
+            self._planning_source_place_id()
         )
 
         planning = self.coordinator.plan_current(

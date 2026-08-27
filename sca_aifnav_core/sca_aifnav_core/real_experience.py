@@ -39,6 +39,7 @@ def update_real_experience(
     action_id: int,
     previous_belief: Optional[np.ndarray],
     motion_set: BaselineMotionSet,
+    observation_prepared: bool = False,
 ) -> RealExperienceResult:
     """
     Apply the baseline real-observation update sequence.
@@ -47,11 +48,12 @@ def update_real_experience(
     infer_states without an action in agent_step_update. Transition learning
     then compares that inferred belief with the stored previous belief.
     """
-    _ensure_observation_capacity(
-        model=model,
-        sensory_observation=sensory_observation,
-        place_observation=place_observation,
-    )
+    if not observation_prepared:
+        prepare_real_observation_dimensions(
+            model=model,
+            sensory_observation=sensory_observation,
+            place_observation=place_observation,
+        )
 
     preliminary = _infer_from_uniform_prior(
         model=model,
@@ -130,7 +132,7 @@ def update_real_experience(
     )
 
 
-def _ensure_observation_capacity(
+def prepare_real_observation_dimensions(
     model: BaselineGenerativeModel,
     sensory_observation: int,
     place_observation: int,
@@ -201,14 +203,14 @@ def _ensure_observation_capacity(
             )
         )
 
-    # The reference dimension-update path rebuilds the Dirichlet-like
-    # observation parameters after checking observation dimensions.
-    model.sensory_concentration = np.ones_like(
-        model.sensory_likelihood
+    # Rebuild the Dirichlet parameters from the current likelihood
+    # tables after checking observation dimensions.
+    model.sensory_concentration = (
+        model.sensory_likelihood.copy()
     )
 
-    model.place_concentration = np.ones_like(
-        model.place_likelihood
+    model.place_concentration = (
+        model.place_likelihood.copy()
     )
 
 

@@ -203,10 +203,10 @@ def test_nearby_position_reuses_existing_place(
         node.destroy_node()
 
 
-def test_distant_position_creates_new_place(
+def test_physical_odometry_does_not_create_new_cognitive_place(
     ros_context,
 ):
-    """A position outside the fixed radius should create a new ID."""
+    """Physical odometry alone must not advance cognitive place memory."""
     node = NavigationNode()
 
     try:
@@ -221,6 +221,13 @@ def test_distant_position_creates_new_place(
             == 0
         )
 
+        assert (
+            node.place_memory_size
+            == 1
+        )
+
+        # Physical odometry can move substantially while the internal
+        # cognitive pose remains at the currently predicted place.
         begin_observation_cycle(
             node,
             1.0,
@@ -230,13 +237,15 @@ def test_distant_position_creates_new_place(
 
         assert (
             node.resolve_current_place_observation()
+            == 0
+        )
+
+        # Raw physical motion must not create another cognitive node.
+        assert (
+            node.place_memory_size
             == 1
         )
 
-        assert (
-            node.place_memory_size
-            == 2
-        )
     finally:
         node.destroy_node()
 

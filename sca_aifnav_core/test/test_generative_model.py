@@ -209,7 +209,7 @@ def test_new_sensory_state_uses_expansion_weight():
     )
 
 
-def test_register_place_resets_pA_concentrations():
+def test_register_place_rebuilds_pA_from_likelihood():
     model = BaselineGenerativeModel()
 
     model.sensory_concentration[:] = 7.0
@@ -219,12 +219,12 @@ def test_register_place_resets_pA_concentrations():
 
     np.testing.assert_allclose(
         model.sensory_concentration,
-        1.0,
+        model.sensory_likelihood,
     )
 
     np.testing.assert_allclose(
         model.place_concentration,
-        1.0,
+        model.place_likelihood,
     )
 
 
@@ -360,3 +360,72 @@ def test_non_integer_place_id_is_rejected(
         model.register_place_observation(
             invalid_place_id
         )
+
+
+def test_confident_state_requires_extreme_z_score():
+    model = BaselineGenerativeModel()
+
+    model.register_place_observation(
+        99
+    )
+
+    belief = np.zeros(
+        100,
+        dtype=float,
+    )
+
+    belief[20] = 1.0
+
+    model.state_belief = belief
+
+    assert (
+        model.get_confident_state_index(
+            z_score=10.0,
+            observation_count=1,
+        )
+        == -1
+    )
+
+
+def test_single_state_above_z_score_is_selected():
+    model = BaselineGenerativeModel()
+
+    model.register_place_observation(
+        101
+    )
+
+    belief = np.zeros(
+        102,
+        dtype=float,
+    )
+
+    belief[37] = 1.0
+
+    model.state_belief = belief
+
+    assert (
+        model.get_confident_state_index(
+            z_score=10.0,
+            observation_count=1,
+        )
+        == 37
+    )
+
+
+def test_uniform_posterior_keeps_current_place():
+    model = BaselineGenerativeModel()
+
+    model.state_belief = np.array(
+        [
+            0.5,
+            0.5,
+        ]
+    )
+
+    assert (
+        model.get_confident_state_index(
+            z_score=10.0,
+            observation_count=1,
+        )
+        == -1
+    )

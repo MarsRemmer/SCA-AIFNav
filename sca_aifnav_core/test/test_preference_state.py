@@ -164,7 +164,7 @@ def test_disagreeing_modalities_create_tied_states():
     )
 
 
-def test_setting_preference_resets_pA_like_baseline():
+def test_setting_preference_rebuilds_pA_from_likelihood():
     model = BaselineGenerativeModel()
 
     model.sensory_concentration[
@@ -188,16 +188,12 @@ def test_setting_preference_resets_pA_like_baseline():
 
     np.testing.assert_allclose(
         model.sensory_concentration,
-        np.ones_like(
-            model.sensory_concentration
-        ),
+        model.sensory_likelihood,
     )
 
     np.testing.assert_allclose(
         model.place_concentration,
-        np.ones_like(
-            model.place_concentration
-        ),
+        model.place_likelihood,
     )
 
 

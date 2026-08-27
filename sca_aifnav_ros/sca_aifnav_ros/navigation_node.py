@@ -9,6 +9,7 @@ from sensor_msgs.msg import Image, LaserScan
 from std_msgs.msg import Float32MultiArray
 
 from sca_aifnav_core.baseline_odometry import (
+    BaselineOdomTracker,
     CognitiveOdomState,
 )
 from sca_aifnav_core.motion_primitives import (
@@ -233,6 +234,20 @@ class NavigationNode(Node):
         )
 
         self._latest_odometry_state = None
+
+        # Physical odometry and internal cognitive pose are deliberately
+        # separated. The internal pose is advanced when a planned action
+        # is converted into its cognitive target, before physical motion.
+        self._internal_cognitive_tracker = (
+            BaselineOdomTracker()
+        )
+        self._internal_cognitive_state = None
+        self._internal_cognitive_place_id = None
+
+        # Saved immediately before one predicted cognitive transition.
+        # It is restored when the corresponding physical action fails.
+        self._pre_action_cognitive_state = None
+        self._pre_action_cognitive_place_id = None
         self._latest_physical_yaw_rad = None
         self._latest_obstacle_distances = None
         self._latest_image = None
@@ -595,6 +610,19 @@ class NavigationNode(Node):
             physical_yaw_rad
         )
 
+        # The first physical pose establishes the initial cognitive pose.
+        # Subsequent physical odometry must not continuously overwrite
+        # the internally predicted cognitive position.
+        if self._internal_cognitive_state is None:
+            self._internal_cognitive_state = (
+                self._internal_cognitive_tracker.reset(
+                    position=state.position,
+                    travel_heading_rad=(
+                        state.travel_heading_rad
+                    ),
+                )
+            )
+
         self._odometry_revision += 1
 
         diagnostic_message = (
@@ -927,25 +955,30 @@ class NavigationNode(Node):
     def resolve_current_place_observation(
         self,
     ):
-        """Resolve the current cognitive position to one place ID."""
+        """Resolve the internally predicted cognitive place."""
         if self._latest_place_observation_id is not None:
             return self._latest_place_observation_id
 
         if (
             self._latest_visual_observation is None
-            or self._latest_odometry_state is None
+            or self._internal_cognitive_state is None
         ):
             return None
 
-        place_id = self._place_memory.resolve_place(
-            self._latest_odometry_state.position
-        )
+        # During bootstrap there is no planned cognitive target yet.
+        # The initial cognitive pose therefore creates/resolves state 0.
+        if self._internal_cognitive_place_id is None:
+            self._internal_cognitive_place_id = (
+                self._place_memory.resolve_place(
+                    self._internal_cognitive_state.position
+                )
+            )
 
         self._latest_place_observation_id = (
-            place_id
+            self._internal_cognitive_place_id
         )
 
-        return place_id
+        return self._latest_place_observation_id
 
     def process_completed_navigation_observation(
         self,
@@ -955,7 +988,7 @@ class NavigationNode(Node):
             return self._latest_navigation_observation
 
         if (
-            self._latest_odometry_state is None
+            self._internal_cognitive_state is None
             or self._latest_obstacle_distances is None
         ):
             return None
@@ -975,7 +1008,7 @@ class NavigationNode(Node):
             return None
 
         observation = build_navigation_observation(
-            state=self._latest_odometry_state,
+            state=self._internal_cognitive_state,
             sensory_observation=(
                 visual_result.observation_id
             ),
@@ -1019,25 +1052,83 @@ class NavigationNode(Node):
             )
         )
 
+        self._apply_posterior_cognitive_correction(
+            decision
+        )
+
         self._latest_navigation_decision = (
             decision
         )
 
         return decision
 
+    def _apply_posterior_cognitive_correction(
+        self,
+        decision,
+    ) -> bool:
+        """Apply a confident posterior place to cognitive odometry."""
+        cycle_result = getattr(
+            decision,
+            "cycle_result",
+            None,
+        )
+
+        if cycle_result is None:
+            return False
+
+        posterior_place_id = getattr(
+            cycle_result,
+            "posterior_place_id",
+            -1,
+        )
+
+        if posterior_place_id < 0:
+            return False
+
+        corrected_position = (
+            self._place_memory.place(
+                posterior_place_id
+            )
+        )
+
+        if corrected_position is None:
+            raise RuntimeError(
+                "posterior state has no matching cognitive place"
+            )
+
+        # The reference pose reset uses a stored planar pose, so its
+        # cognitive heading is reset to zero at posterior correction.
+        self._internal_cognitive_state = (
+            self._internal_cognitive_tracker.reset(
+                position=corrected_position,
+                travel_heading_rad=0.0,
+            )
+        )
+
+        self._internal_cognitive_place_id = (
+            posterior_place_id
+        )
+
+        return True
+
     def record_executed_navigation_action(
         self,
         action_id: int,
     ) -> None:
-        """Record completion of the core-planned physical action."""
+        """Record successful physical completion of the predicted action."""
         self._navigation_core_bridge.record_executed_action(
             action_id
         )
 
+        # Physical execution succeeded, so the predicted cognitive pose
+        # remains active for the following observation.
+        self._pre_action_cognitive_state = None
+        self._pre_action_cognitive_place_id = None
+
     def start_planned_navigation_action(
         self,
     ) -> bool:
-        """Start executing the action currently proposed by the core."""
+        """Predict the cognitive transition, then start physical motion."""
         target = (
             self._navigation_core_bridge
             .resolve_planned_action_target()
@@ -1045,6 +1136,33 @@ class NavigationNode(Node):
 
         if target is None:
             return False
+
+        if self._internal_cognitive_state is None:
+            raise RuntimeError(
+                "internal cognitive pose is not initialized"
+            )
+
+        # Save the source cognitive pose before applying the predicted
+        # transition. A failed physical action restores this state.
+        self._pre_action_cognitive_state = (
+            self._internal_cognitive_state
+        )
+        self._pre_action_cognitive_place_id = (
+            self._internal_cognitive_place_id
+        )
+
+        # Apply the planned transition internally before the robot moves.
+        # A stationary action leaves the pose unchanged.
+        if not target.is_stationary:
+            self._internal_cognitive_state = (
+                self._internal_cognitive_tracker.update_position(
+                    target.target_position
+                )
+            )
+
+        self._internal_cognitive_place_id = (
+            target.target_place_id
+        )
 
         self._navigation_motion_executor.start(
             target
@@ -1207,6 +1325,30 @@ class NavigationNode(Node):
                 "failed action source place is missing "
                 "from cognitive memory"
             )
+
+        if self._pre_action_cognitive_state is None:
+            raise RuntimeError(
+                "failed action has no saved cognitive source pose"
+            )
+
+        # Restore the internal pose before physically returning.
+        source_state = self._pre_action_cognitive_state
+
+        self._internal_cognitive_state = (
+            self._internal_cognitive_tracker.reset(
+                position=source_state.position,
+                travel_heading_rad=(
+                    source_state.travel_heading_rad
+                ),
+            )
+        )
+
+        self._internal_cognitive_place_id = (
+            self._pre_action_cognitive_place_id
+        )
+
+        self._pre_action_cognitive_state = None
+        self._pre_action_cognitive_place_id = None
 
         return_target = NavigationActionTarget(
             action_id=(

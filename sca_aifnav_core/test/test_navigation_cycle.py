@@ -316,3 +316,57 @@ def test_clear_preference_removes_goal():
     assert np.all(
         snapshot.preferred_states == 0.0
     )
+
+
+def test_posterior_place_is_used_as_next_planning_root(
+    monkeypatch,
+):
+    (
+        model,
+        memory,
+        _,
+        coordinator,
+        state,
+        obstacle_distances,
+    ) = make_case()
+
+    place_one = memory.resolve_place(
+        Point2D(
+            1.0,
+            0.0,
+        )
+    )
+
+    assert place_one == 1
+
+    model.register_place_observation(
+        place_one
+    )
+
+    monkeypatch.setattr(
+        model,
+        "get_confident_state_index",
+        lambda **kwargs: place_one,
+    )
+
+    result = coordinator.step_and_plan(
+        state=state,
+        sensory_observation=0,
+        place_observation=0,
+        executed_action_id=12,
+        obstacle_distances=(
+            obstacle_distances
+        ),
+        current_place_id=0,
+        action_selection="deterministic",
+    )
+
+    assert (
+        result.posterior_place_id
+        == 1
+    )
+
+    assert (
+        result.planning.root_node.place_id
+        == 1
+    )

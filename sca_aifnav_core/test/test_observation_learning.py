@@ -125,7 +125,7 @@ def test_place_deterministic_zero_support_is_preserved():
         0,
         1,
     ] == pytest.approx(
-        1.0
+        0.0
     )
 
 
@@ -144,7 +144,7 @@ def test_multimodal_learning_updates_both_pA_arrays():
         1,
         1,
     ] == pytest.approx(
-        6.0
+        5.01
     )
 
     assert model.place_concentration[

@@ -78,6 +78,7 @@ class BaselineStepCoordinator:
         place_observation: int,
         action_id: int,
         obstacle_distances,
+        observation_prepared: bool = False,
     ) -> BaselineStepResult:
         """Execute one baseline learning-and-map-update cycle."""
         previous_belief = (
@@ -95,6 +96,9 @@ class BaselineStepCoordinator:
             action_id=action_id,
             previous_belief=previous_belief,
             motion_set=self.motion_set,
+            observation_prepared=(
+                observation_prepared
+            ),
         )
 
         # baseline saves the inference performed inside

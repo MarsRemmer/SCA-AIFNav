@@ -142,6 +142,22 @@ def set_pose(
     )
 
 
+def initialize_cognitive_origin(
+    node,
+):
+    """Represent the already-established initial cognitive location."""
+    state = node._internal_cognitive_tracker.reset(
+        position=Point2D(
+            0.0,
+            0.0,
+        ),
+        travel_heading_rad=0.0,
+    )
+
+    node._internal_cognitive_state = state
+    node._internal_cognitive_place_id = 0
+
+
 def test_no_planned_target_does_not_start_action(
     ros_context,
 ):
@@ -172,6 +188,10 @@ def test_planned_target_starts_physical_action(
     """A valid core target should start physical execution."""
     node = NavigationNode()
 
+    initialize_cognitive_origin(
+        node
+    )
+
     node._navigation_core_bridge = (
         FakeCoreBridge(
             directional_target()
@@ -197,6 +217,10 @@ def test_directional_action_waits_for_sensor_state(
 ):
     """Directional motion must wait for pose, yaw, and scan."""
     node = NavigationNode()
+
+    initialize_cognitive_origin(
+        node
+    )
 
     node._navigation_core_bridge = (
         FakeCoreBridge(
@@ -225,6 +249,10 @@ def test_directional_action_publishes_velocity(
 ):
     """A distant target should publish a physical velocity command."""
     node = NavigationNode()
+
+    initialize_cognitive_origin(
+        node
+    )
 
     bridge = FakeCoreBridge(
         directional_target()
@@ -288,6 +316,10 @@ def test_reached_target_records_action_completion(
     """Core completion must occur only after the target is reached."""
     node = NavigationNode()
 
+    initialize_cognitive_origin(
+        node
+    )
+
     bridge = FakeCoreBridge(
         directional_target()
     )
@@ -341,6 +373,10 @@ def test_stay_completes_without_sensor_state(
 ):
     """STAY should complete and publish zero velocity immediately."""
     node = NavigationNode()
+
+    initialize_cognitive_origin(
+        node
+    )
 
     bridge = FakeCoreBridge(
         stationary_target()

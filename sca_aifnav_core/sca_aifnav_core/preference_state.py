@@ -285,8 +285,8 @@ def _ensure_preference_observation_capacity(
     """
     Reproduce the A/pA preparation performed by baseline update_preference.
 
-    baseline calls update_A_dim_given_obs with null_probability=False and then
-    rebuilds the Dirichlet concentrations from ones.
+    The reference update expands A with non-null observation probabilities
+    and then rebuilds the Dirichlet parameters from the resulting A values.
     """
     sensory_addition = 0
 
@@ -330,13 +330,13 @@ def _ensure_preference_observation_capacity(
             )
         )
 
-    # baseline recreates pA inside update_A_dim_given_obs.
-    model.sensory_concentration = np.ones_like(
-        model.sensory_likelihood
+    # Recreate the observation Dirichlet parameters from current A.
+    model.sensory_concentration = (
+        model.sensory_likelihood.copy()
     )
 
-    model.place_concentration = np.ones_like(
-        model.place_likelihood
+    model.place_concentration = (
+        model.place_likelihood.copy()
     )
 
 

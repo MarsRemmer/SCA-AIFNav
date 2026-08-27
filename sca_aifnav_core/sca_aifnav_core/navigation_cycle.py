@@ -38,6 +38,9 @@ from sca_aifnav_core.preference_state import (
     BaselinePreferenceState,
     PreferenceSnapshot,
 )
+from sca_aifnav_core.real_experience import (
+    prepare_real_observation_dimensions,
+)
 from sca_aifnav_core.spatial_memory import (
     BaselinePlaceMemory,
 )
@@ -50,6 +53,7 @@ class NavigationCycleResult:
     learning: BaselineStepResult
     preferences: PreferenceSnapshot
     planning: MCTSPlan
+    posterior_place_id: int = -1
 
 
 class BaselineNavigationCoordinator:
@@ -278,6 +282,22 @@ class BaselineNavigationCoordinator:
         just been observed. The returned MCTS action is the action proposed
         for the following control step.
         """
+        # Prepare the newly observed A/pA dimensions before state
+        # inference, then synchronize C to those dimensions.
+        prepare_real_observation_dimensions(
+            model=self.model,
+            sensory_observation=(
+                sensory_observation
+            ),
+            place_observation=(
+                place_observation
+            ),
+        )
+
+        self.preferences.sync_dimensions(
+            self.model
+        )
+
         learning_result = self.learning.step(
             state=state,
             sensory_observation=(
@@ -290,6 +310,7 @@ class BaselineNavigationCoordinator:
             obstacle_distances=(
                 obstacle_distances
             ),
+            observation_prepared=True,
         )
 
         # Cognitive growth may increase observation/state dimensions.
@@ -298,14 +319,28 @@ class BaselineNavigationCoordinator:
             self.model
         )
 
+        posterior_place_id = (
+            self.model.get_confident_state_index(
+                z_score=10.0,
+                min_z_score=2.0,
+                observation_count=1,
+            )
+        )
+
         preference_snapshot = (
             self.preferences.snapshot()
         )
 
-        if current_place_id is None:
+        if posterior_place_id >= 0:
+            planning_place_id = (
+                posterior_place_id
+            )
+
+        elif current_place_id is None:
             planning_place_id = (
                 place_observation
             )
+
         else:
             planning_place_id = (
                 current_place_id
@@ -342,4 +377,7 @@ class BaselineNavigationCoordinator:
                 preference_snapshot
             ),
             planning=planning_result,
+            posterior_place_id=(
+                posterior_place_id
+            ),
         )
