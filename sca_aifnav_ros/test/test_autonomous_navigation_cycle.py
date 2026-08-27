@@ -363,3 +363,46 @@ def test_missing_execution_target_is_explicit_error(
         )
     finally:
         node.destroy_node()
+
+
+def test_control_timer_autostarts_once_when_sensors_are_ready(
+    ros_context,
+):
+    node = NavigationNode()
+
+    starts = []
+
+    try:
+        node._latest_odometry_state = object()
+        node._latest_obstacle_distances = (
+            [1.0] * 12
+        )
+        node._latest_image = object()
+        node._latest_left_image = object()
+        node._latest_right_image = object()
+        node._latest_physical_yaw_rad = 0.0
+
+        node._image_revision = 1
+        node._left_image_revision = 1
+        node._right_image_revision = 1
+
+        node.start_autonomous_navigation = (
+            lambda: starts.append(True) or True
+        )
+
+        node._navigation_control_timer_callback()
+
+        assert starts == [True]
+        assert (
+            node._autonomous_navigation_started_once
+            is True
+        )
+
+        node._autonomous_navigation_active = False
+
+        node._navigation_control_timer_callback()
+
+        assert starts == [True]
+
+    finally:
+        node.destroy_node()

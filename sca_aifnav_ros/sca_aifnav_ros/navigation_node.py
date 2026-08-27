@@ -224,6 +224,7 @@ class NavigationNode(Node):
         self._latest_scan_message = None
 
         self._autonomous_navigation_active = False
+        self._autonomous_navigation_started_once = False
         self._returning_after_failed_action = False
 
         self._navigation_control_timer = (
@@ -1446,6 +1447,23 @@ class NavigationNode(Node):
     ) -> None:
         """Advance autonomous navigation at the physical control rate."""
         if not self._autonomous_navigation_active:
+            if self._autonomous_navigation_started_once:
+                return
+
+            if (
+                not self.sensor_snapshot_ready
+                or not self.camera_batch_ready
+                or self._latest_physical_yaw_rad is None
+            ):
+                return
+
+            started = (
+                self.start_autonomous_navigation()
+            )
+
+            if started:
+                self._autonomous_navigation_started_once = True
+
             return
 
         self.step_autonomous_navigation()
