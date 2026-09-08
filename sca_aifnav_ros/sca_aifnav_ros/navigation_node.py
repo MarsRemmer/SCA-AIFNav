@@ -601,7 +601,7 @@ class NavigationNode(Node):
         )
 
         physical_yaw_rad = (
-            OrientationAdapter.yaw_from_quaternion(
+            OrientationAdapter.signed_yaw_from_quaternion(
                 message.pose.pose.orientation
             )
         )
@@ -650,7 +650,9 @@ class NavigationNode(Node):
             self._obstacle_scan_adapter.aggregate(
                 message,
                 robot_yaw_rad=(
-                    self._latest_physical_yaw_rad
+                    OrientationAdapter.positive_yaw(
+                        self._latest_physical_yaw_rad
+                    )
                 ),
                 laser_yaw_offset_rad=(
                     self._laser_yaw_offset_rad
@@ -718,7 +720,9 @@ class NavigationNode(Node):
         command = (
             self._panorama_rotation_controller.command(
                 current_yaw_rad=(
-                    self._latest_physical_yaw_rad
+                    OrientationAdapter.positive_yaw(
+                        self._latest_physical_yaw_rad
+                    )
                 ),
                 goal_yaw_rad=goal_yaw_rad,
             )
@@ -791,7 +795,9 @@ class NavigationNode(Node):
 
         coordinator = PanoramaCoordinator(
             current_yaw_rad=(
-                self._latest_physical_yaw_rad
+                OrientationAdapter.positive_yaw(
+                    self._latest_physical_yaw_rad
+                )
             ),
             action_count=(
                 BaselineMotionSet.ACTION_COUNT

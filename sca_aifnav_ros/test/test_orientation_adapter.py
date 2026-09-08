@@ -220,3 +220,54 @@ def test_non_finite_component_is_rejected(
         adapter.yaw_from_quaternion(
             quaternion
         )
+
+
+def test_signed_negative_ninety_degree_yaw_remains_negative():
+    """Signed physical yaw should preserve a negative body orientation."""
+    adapter = OrientationAdapter()
+
+    yaw = adapter.signed_yaw_from_quaternion(
+        yaw_quaternion(
+            -math.pi / 2.0
+        )
+    )
+
+    assert yaw == pytest.approx(
+        round(
+            -math.pi / 2.0,
+            4,
+        )
+    )
+
+    assert yaw < 0.0
+
+
+def test_positive_yaw_is_derived_after_signed_rounding():
+    """Positive yaw should shift the already-rounded signed yaw."""
+    adapter = OrientationAdapter()
+
+    signed_yaw = (
+        adapter.signed_yaw_from_quaternion(
+            yaw_quaternion(
+                -0.123456
+            )
+        )
+    )
+
+    positive_yaw = (
+        adapter.positive_yaw(
+            signed_yaw
+        )
+    )
+
+    assert signed_yaw == pytest.approx(
+        round(
+            -0.123456,
+            4,
+        )
+    )
+
+    assert positive_yaw == pytest.approx(
+        signed_yaw
+        + 2.0 * math.pi
+    )

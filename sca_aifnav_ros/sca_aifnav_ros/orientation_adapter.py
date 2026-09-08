@@ -6,21 +6,16 @@ from geometry_msgs.msg import Quaternion
 
 
 class OrientationAdapter:
-    """Convert ROS 2 quaternion orientation into baseline planar yaw."""
+    """Convert ROS 2 quaternion orientation into planar yaw conventions."""
 
     YAW_DECIMALS = 4
 
     @classmethod
-    def yaw_from_quaternion(
+    def signed_yaw_from_quaternion(
         cls,
         quaternion: Quaternion,
     ) -> float:
-        """
-        Return physical robot yaw in the baseline angular convention.
-
-        The quaternion is converted directly to yaw, rounded to four
-        decimal places, and negative yaw is shifted by 2*pi.
-        """
+        """Return rounded signed physical robot yaw."""
         if not isinstance(
             quaternion,
             Quaternion,
@@ -69,9 +64,25 @@ class OrientationAdapter:
             cos_yaw_cos_pitch,
         )
 
-        yaw = round(
+        return round(
             yaw,
             cls.YAW_DECIMALS,
+        )
+
+    @staticmethod
+    def positive_yaw(
+        signed_yaw_rad: float,
+    ) -> float:
+        """Convert signed yaw into the positive angular convention."""
+        if not math.isfinite(
+            signed_yaw_rad
+        ):
+            raise ValueError(
+                "signed_yaw_rad must be finite"
+            )
+
+        yaw = float(
+            signed_yaw_rad
         )
 
         if yaw < 0.0:
@@ -81,3 +92,19 @@ class OrientationAdapter:
             )
 
         return yaw
+
+    @classmethod
+    def yaw_from_quaternion(
+        cls,
+        quaternion: Quaternion,
+    ) -> float:
+        """Return yaw in the positive angular convention."""
+        signed_yaw = (
+            cls.signed_yaw_from_quaternion(
+                quaternion
+            )
+        )
+
+        return cls.positive_yaw(
+            signed_yaw
+        )

@@ -285,3 +285,55 @@ def test_rotation_uses_latest_physical_yaw(
         )
     finally:
         node.destroy_node()
+
+
+def test_panorama_control_wraps_negative_physical_yaw(
+    ros_context,
+):
+    """Panorama control should use the positive angular convention."""
+    node, publisher = (
+        capturing_node()
+    )
+
+    try:
+        node._odometry_callback(
+            odometry_with_yaw(
+                -math.pi / 2.0
+            )
+        )
+
+        command = (
+            node.publish_panorama_rotation(
+                0.0
+            )
+        )
+
+        expected_panorama_yaw = (
+            round(
+                -math.pi / 2.0,
+                4,
+            )
+            + 2.0
+            * math.pi
+        )
+
+        assert command is not None
+
+        assert (
+            node.physical_yaw_rad
+            == pytest.approx(
+                round(
+                    -math.pi / 2.0,
+                    4,
+                )
+            )
+        )
+
+        assert (
+            command.current_yaw_rad
+            == pytest.approx(
+                expected_panorama_yaw
+            )
+        )
+    finally:
+        node.destroy_node()

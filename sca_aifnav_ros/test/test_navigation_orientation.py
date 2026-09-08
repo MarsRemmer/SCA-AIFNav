@@ -84,10 +84,10 @@ def test_odometry_callback_stores_physical_yaw(
         node.destroy_node()
 
 
-def test_negative_body_yaw_wraps_positive(
+def test_negative_body_yaw_remains_signed(
     ros_context,
 ):
-    """Negative physical yaw should use the positive angular convention."""
+    """Physical motion yaw should retain the signed angular convention."""
     node = NavigationNode()
 
     try:
@@ -99,13 +99,9 @@ def test_negative_body_yaw_wraps_positive(
             )
         )
 
-        expected = (
-            round(
-                -math.pi / 2.0,
-                4,
-            )
-            + 2.0
-            * math.pi
+        expected = round(
+            -math.pi / 2.0,
+            4,
         )
 
         assert (
