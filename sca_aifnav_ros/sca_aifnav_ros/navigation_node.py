@@ -1103,8 +1103,24 @@ class NavigationNode(Node):
                 "posterior state has no matching cognitive place"
             )
 
-        # The reference pose reset uses a stored planar pose, so its
-        # cognitive heading is reset to zero at posterior correction.
+        # Realign physical odometry to the confidently inferred
+        # cognitive place. The returned state must also replace the
+        # cached odometry immediately, because another physical odometry
+        # message may not arrive before the next motion-control step.
+        aligned_odometry_state = (
+            self._odometry_adapter.realign(
+                corrected_position
+            )
+        )
+
+        self._latest_odometry_state = (
+            aligned_odometry_state
+        )
+
+        # Keep the independently predicted cognitive tracker aligned with
+        # the same posterior place. Posterior correction represents a
+        # coordinate correction rather than physical travel, so cognitive
+        # heading is reset to zero.
         self._internal_cognitive_state = (
             self._internal_cognitive_tracker.reset(
                 position=corrected_position,

@@ -204,3 +204,168 @@ def test_revision_counts_every_processed_message(
         assert node.odometry_revision == 5
     finally:
         node.destroy_node()
+
+
+def test_posterior_correction_realigns_cached_odometry(
+    ros_context,
+):
+    """Posterior correction should align physical and cognitive XY."""
+    node = NavigationNode()
+
+    try:
+        node._odometry_callback(
+            odometry_message(
+                10.0,
+                20.0,
+            )
+        )
+
+        node._odometry_callback(
+            odometry_message(
+                12.0,
+                21.0,
+            )
+        )
+
+        assert (
+            node.latest_odometry_state.position
+            == Point2D(
+                2.0,
+                1.0,
+            )
+        )
+
+        corrected_position = Point2D(
+            5.0,
+            -3.0,
+        )
+
+        posterior_place_id = (
+            node._place_memory.resolve_place(
+                corrected_position
+            )
+        )
+
+        class Result:
+            pass
+
+        cycle_result = Result()
+        cycle_result.posterior_place_id = (
+            posterior_place_id
+        )
+
+        decision = Result()
+        decision.cycle_result = cycle_result
+
+        corrected = (
+            node._apply_posterior_cognitive_correction(
+                decision
+            )
+        )
+
+        assert corrected is True
+
+        assert (
+            node.latest_odometry_state.position
+            == corrected_position
+        )
+
+        assert (
+            node._internal_cognitive_state.position
+            == corrected_position
+        )
+
+        assert (
+            node._internal_cognitive_place_id
+            == posterior_place_id
+        )
+
+        assert (
+            node._odometry_adapter.alignment_offset
+            == Point2D(
+                3.0,
+                -4.0,
+            )
+        )
+    finally:
+        node.destroy_node()
+
+
+def test_odometry_continues_from_posterior_correction(
+    ros_context,
+):
+    """Later physical motion should continue from corrected cognitive XY."""
+    node = NavigationNode()
+
+    try:
+        node._odometry_callback(
+            odometry_message(
+                10.0,
+                20.0,
+            )
+        )
+
+        node._odometry_callback(
+            odometry_message(
+                12.0,
+                21.0,
+            )
+        )
+
+        corrected_position = Point2D(
+            5.0,
+            -3.0,
+        )
+
+        posterior_place_id = (
+            node._place_memory.resolve_place(
+                corrected_position
+            )
+        )
+
+        class Result:
+            pass
+
+        cycle_result = Result()
+        cycle_result.posterior_place_id = (
+            posterior_place_id
+        )
+
+        decision = Result()
+        decision.cycle_result = cycle_result
+
+        node._apply_posterior_cognitive_correction(
+            decision
+        )
+
+        node._odometry_callback(
+            odometry_message(
+                13.0,
+                21.0,
+            )
+        )
+
+        assert (
+            node.latest_odometry_state.position
+            == Point2D(
+                6.0,
+                -3.0,
+            )
+        )
+
+        assert (
+            node.latest_odometry_state.travel_heading_rad
+            == pytest.approx(
+                0.0
+            )
+        )
+
+        assert (
+            node._odometry_adapter.alignment_offset
+            == Point2D(
+                3.0,
+                -4.0,
+            )
+        )
+    finally:
+        node.destroy_node()

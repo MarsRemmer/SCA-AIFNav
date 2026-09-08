@@ -268,3 +268,185 @@ def test_non_odometry_message_is_rejected():
         adapter.update(
             object()
         )
+
+
+def test_alignment_offset_starts_at_zero():
+    """Runtime alignment should initially contain no translation."""
+    adapter = OdometryAdapter()
+
+    assert adapter.alignment_offset == Point2D(
+        0.0,
+        0.0,
+    )
+
+
+def test_realign_requires_initialized_odometry():
+    """Realignment should require a physical odometry reference."""
+    adapter = OdometryAdapter()
+
+    with pytest.raises(
+        RuntimeError,
+        match="odometry adapter is not initialized",
+    ):
+        adapter.realign(
+            Point2D(
+                1.0,
+                2.0,
+            )
+        )
+
+
+def test_realign_rejects_non_point_position():
+    """Realignment target must use the core Point2D type."""
+    adapter = OdometryAdapter()
+
+    adapter.update(
+        odometry_message(
+            10.0,
+            20.0,
+        )
+    )
+
+    with pytest.raises(
+        TypeError,
+        match="cognitive_position must be a Point2D",
+    ):
+        adapter.realign(
+            (1.0, 2.0)
+        )
+
+
+def test_realign_matches_current_physical_pose_to_cognitive_pose():
+    """Current physical odometry should map exactly to the believed pose."""
+    adapter = OdometryAdapter()
+
+    adapter.update(
+        odometry_message(
+            10.0,
+            20.0,
+        )
+    )
+
+    adapter.update(
+        odometry_message(
+            12.0,
+            21.0,
+        )
+    )
+
+    state = adapter.realign(
+        Point2D(
+            5.0,
+            -3.0,
+        )
+    )
+
+    assert adapter.alignment_offset == Point2D(
+        3.0,
+        -4.0,
+    )
+
+    assert state.position == Point2D(
+        5.0,
+        -3.0,
+    )
+
+    assert adapter.state.position == Point2D(
+        5.0,
+        -3.0,
+    )
+
+    assert state.travel_heading_rad == pytest.approx(
+        0.0
+    )
+
+
+def test_physical_motion_continues_from_realigned_cognitive_pose():
+    """Later physical displacement should continue from the corrected pose."""
+    adapter = OdometryAdapter()
+
+    adapter.update(
+        odometry_message(
+            10.0,
+            20.0,
+        )
+    )
+
+    adapter.update(
+        odometry_message(
+            12.0,
+            21.0,
+        )
+    )
+
+    adapter.realign(
+        Point2D(
+            5.0,
+            -3.0,
+        )
+    )
+
+    state = adapter.update(
+        odometry_message(
+            13.0,
+            21.0,
+        )
+    )
+
+    assert state.position == Point2D(
+        6.0,
+        -3.0,
+    )
+
+    assert state.travel_heading_rad == pytest.approx(
+        0.0
+    )
+
+
+def test_reset_clears_runtime_alignment():
+    """Full adapter reset should remove posterior alignment history."""
+    adapter = OdometryAdapter()
+
+    adapter.update(
+        odometry_message(
+            10.0,
+            20.0,
+        )
+    )
+
+    adapter.update(
+        odometry_message(
+            12.0,
+            21.0,
+        )
+    )
+
+    adapter.realign(
+        Point2D(
+            5.0,
+            -3.0,
+        )
+    )
+
+    adapter.reset()
+
+    assert adapter.initialized is False
+
+    assert adapter.origin_position is None
+
+    assert adapter.alignment_offset == Point2D(
+        0.0,
+        0.0,
+    )
+
+    state = adapter.update(
+        odometry_message(
+            100.0,
+            50.0,
+        )
+    )
+
+    assert state.position == Point2D(
+        0.0,
+        0.0,
+    )

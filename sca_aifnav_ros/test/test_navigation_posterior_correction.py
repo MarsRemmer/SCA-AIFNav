@@ -244,6 +244,13 @@ def test_confident_posterior_resets_internal_cognitive_pose():
     """A confident posterior snaps internal cognition to that place."""
     node = make_fake_navigation_node()
 
+    node._odometry_adapter = SimpleNamespace(
+        realign=lambda position: SimpleNamespace(
+            position=position,
+            travel_heading_rad=0.0,
+        )
+    )
+
     decision = SimpleNamespace(
         cycle_result=SimpleNamespace(
             posterior_place_id=1,
