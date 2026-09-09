@@ -369,3 +369,67 @@ def test_timer_ignores_completed_panorama(
         )
     finally:
         node.destroy_node()
+
+
+def test_timer_skips_timed_out_rotation(
+    ros_context,
+    bridge,
+):
+    """The ROS timer should stop and skip an overdue rotation target."""
+    node, publisher = ready_node(
+        bridge
+    )
+
+    try:
+        node.start_panorama_acquisition()
+
+        coordinator = (
+            node._panorama_coordinator
+        )
+
+        assert (
+            coordinator.current_goal_yaw_rad
+            == pytest.approx(
+                math.pi / 4.0
+            )
+        )
+
+        coordinator._rotation_started_at = (
+            coordinator._clock()
+            - coordinator.rotation_timeout_sec
+            - 1.0
+        )
+
+        node._panorama_timer_callback()
+
+        assert (
+            coordinator.state
+            is PanoramaCoordinatorState.ROTATING
+        )
+
+        assert coordinator.batch_count == 1
+        assert coordinator.skipped_rotation_count == 1
+
+        assert (
+            coordinator.current_goal_yaw_rad
+            == pytest.approx(
+                math.pi / 2.0
+            )
+        )
+
+        assert len(
+            publisher.messages
+        ) == 1
+
+        assert (
+            publisher.messages[-1].linear.x
+            == 0.0
+        )
+
+        assert (
+            publisher.messages[-1].angular.z
+            == 0.0
+        )
+
+    finally:
+        node.destroy_node()

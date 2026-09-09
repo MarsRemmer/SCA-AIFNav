@@ -355,3 +355,89 @@ def test_revisions_cannot_be_negative():
             _batch(1),
             (1, -1, 1),
         )
+
+
+class FakePanoramaClock:
+    """Provide deterministic wall time for panorama timeout tests."""
+
+    def __init__(
+        self,
+    ):
+        self.now = 0.0
+
+    def __call__(
+        self,
+    ):
+        """Return current fake time."""
+        return self.now
+
+    def advance(
+        self,
+        seconds,
+    ):
+        """Advance fake time."""
+        self.now += seconds
+
+
+def test_rotation_timeout_skips_current_capture():
+    """AIMAPP should skip a rotation only after more than 120 seconds."""
+    clock = FakePanoramaClock()
+
+    coordinator = PanoramaCoordinator(
+        current_yaw_rad=0.0,
+        action_count=13,
+        camera_count=3,
+        clock=clock,
+    )
+
+    coordinator.capture_initial_batch(
+        _batch(1),
+        (1, 1, 1),
+    )
+
+    assert (
+        coordinator.current_goal_yaw_rad
+        == pytest.approx(
+            math.pi / 4.0
+        )
+    )
+
+    clock.advance(
+        120.0
+    )
+
+    assert (
+        coordinator.rotation_timed_out
+        is False
+    )
+
+    clock.advance(
+        0.001
+    )
+
+    assert (
+        coordinator.rotation_timed_out
+        is True
+    )
+
+    coordinator.skip_timed_out_rotation()
+
+    assert coordinator.batch_count == 1
+    assert coordinator.skipped_rotation_count == 1
+
+    assert (
+        coordinator.state
+        is PanoramaCoordinatorState.ROTATING
+    )
+
+    assert (
+        coordinator.current_goal_yaw_rad
+        == pytest.approx(
+            math.pi / 2.0
+        )
+    )
+
+    assert (
+        coordinator.rotation_timed_out
+        is False
+    )

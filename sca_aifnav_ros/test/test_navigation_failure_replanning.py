@@ -3,6 +3,7 @@
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 
 from sca_aifnav_core.baseline_odometry import (
     CognitiveOdomState,
@@ -321,3 +322,41 @@ def test_replanning_excludes_failed_action():
             1,
         )
     )
+
+
+def test_replanning_stops_when_only_stationary_action_remains():
+    """Retry exhaustion should not fall back to STAY."""
+    (
+        bridge,
+        coordinator,
+        source_id,
+        target_id,
+    ) = configured_bridge()
+
+    decision = bridge.process_observation(
+        observation()
+    )
+
+    decision.cycle_result.planning.available_actions = (
+        0,
+        12,
+    )
+
+    bridge.record_failed_action(
+        0
+    )
+
+    assert (
+        bridge.remaining_retry_actions
+        == (
+            12,
+        )
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="no directional navigation actions",
+    ):
+        bridge.replan_after_failed_action()
+
+    assert bridge.next_action_id is None

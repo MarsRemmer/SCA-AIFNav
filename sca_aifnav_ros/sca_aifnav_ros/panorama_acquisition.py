@@ -31,6 +31,14 @@ class PanoramaAcquisitionSession:
             )
         )
 
+        # Rotation progress is intentionally independent from the
+        # number of successfully captured batches. AIMAPP may time out
+        # at one rotation target, skip that capture, and continue with
+        # the following target.
+        self._initial_capture_complete = False
+        self._rotation_goal_index = 0
+        self._skipped_rotation_count = 0
+
     @property
     def batch_count(
         self,
@@ -39,20 +47,30 @@ class PanoramaAcquisitionSession:
         return self._accumulator.batch_count
 
     @property
+    def skipped_rotation_count(
+        self,
+    ) -> int:
+        """Return how many timed-out rotation captures were skipped."""
+        return self._skipped_rotation_count
+
+    @property
     def requires_initial_capture(
         self,
     ) -> bool:
         """Return whether the starting-orientation batch is still missing."""
-        return self.batch_count == 0
+        return not self._initial_capture_complete
 
     @property
     def is_complete(
         self,
     ) -> bool:
-        """Return whether all planned camera batches were captured."""
+        """Return whether every planned rotation target was processed."""
         return (
-            self.batch_count
-            == self.plan.capture_batch_count
+            self._initial_capture_complete
+            and self._rotation_goal_index
+            >= len(
+                self.plan.absolute_goal_angles
+            )
         )
 
     @property
@@ -63,7 +81,7 @@ class PanoramaAcquisitionSession:
         Return the next physical yaw target.
 
         No rotation target exists before the initial batch is captured
-        or after the panorama acquisition has completed.
+        or after all rotation targets have been processed.
         """
         if self.requires_initial_capture:
             return None
@@ -71,14 +89,9 @@ class PanoramaAcquisitionSession:
         if self.is_complete:
             return None
 
-        goal_index = (
-            self.batch_count
-            - 1
-        )
-
         return (
             self.plan.absolute_goal_angles[
-                goal_index
+                self._rotation_goal_index
             ]
         )
 
@@ -96,10 +109,34 @@ class PanoramaAcquisitionSession:
             images
         )
 
+        if not self._initial_capture_complete:
+            self._initial_capture_complete = True
+            return
+
+        self._rotation_goal_index += 1
+
+    def skip_rotation_goal(
+        self,
+    ) -> None:
+        """Advance past one rotation target without capturing images."""
+        if self.requires_initial_capture:
+            raise RuntimeError(
+                "initial camera batch must be captured "
+                "before skipping a rotation goal"
+            )
+
+        if self.is_complete:
+            raise RuntimeError(
+                "panorama acquisition is already complete"
+            )
+
+        self._rotation_goal_index += 1
+        self._skipped_rotation_count += 1
+
     def compiled_images(
         self,
     ):
-        """Return the complete ordered panorama image sequence."""
+        """Return captured images after every planned target was processed."""
         if not self.is_complete:
             raise RuntimeError(
                 "panorama acquisition is not complete"
@@ -109,12 +146,23 @@ class PanoramaAcquisitionSession:
             self._accumulator.compiled_images()
         )
 
+        expected_batches = (
+            self.plan.capture_batch_count
+            - self._skipped_rotation_count
+        )
+
+        expected_image_count = (
+            expected_batches
+            * self.plan.camera_count
+        )
+
         if (
             len(images)
-            != self.plan.expected_image_count
+            != expected_image_count
         ):
             raise RuntimeError(
-                "panorama image count does not match capture plan"
+                "panorama image count does not match "
+                "processed capture plan"
             )
 
         return images

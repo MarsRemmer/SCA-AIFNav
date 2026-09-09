@@ -487,3 +487,320 @@ def test_failed_action_records_failure_before_cognitive_pose_rollback(
 
     finally:
         node.destroy_node()
+
+
+class RecoveryMotionExecutor:
+    """Fail the original action, then complete the physical return."""
+
+    def __init__(
+        self,
+    ):
+        self._active_target = None
+        self.started_targets = []
+        self.step_count = 0
+
+    @property
+    def is_active(
+        self,
+    ):
+        """Return whether a physical target is active."""
+        return self._active_target is not None
+
+    @property
+    def active_target(
+        self,
+    ):
+        """Return the current physical target."""
+        return self._active_target
+
+    def start(
+        self,
+        target,
+    ):
+        """Start one deterministic physical target."""
+        self._active_target = target
+        self.started_targets.append(
+            target
+        )
+
+    def step(
+        self,
+        current_position=None,
+        physical_yaw_rad=None,
+        scan=None,
+    ):
+        """Fail first travel, then complete the return travel."""
+        target = self._active_target
+
+        if target is None:
+            return None
+
+        self.step_count += 1
+
+        if self.step_count == 1:
+            self._active_target = None
+
+            return NavigationMotionUpdate(
+                action_id=target.action_id,
+                command=GoalMotionCommand(
+                    linear_speed=0.0,
+                    angular_speed=0.0,
+                    distance_to_goal=0.65,
+                    angular_error_rad=0.0,
+                    goal_reached=False,
+                ),
+                completed_action_id=None,
+                failed_action_id=target.action_id,
+            )
+
+        if self.step_count == 2:
+            self._active_target = None
+
+            return NavigationMotionUpdate(
+                action_id=target.action_id,
+                command=GoalMotionCommand(
+                    linear_speed=0.0,
+                    angular_speed=0.0,
+                    distance_to_goal=0.0,
+                    angular_error_rad=0.0,
+                    goal_reached=True,
+                ),
+                completed_action_id=target.action_id,
+                failed_action_id=None,
+            )
+
+        raise RuntimeError(
+            "unexpected recovery executor step"
+        )
+
+
+def test_failed_action_returns_then_replans_from_source(
+    ros_context,
+    monkeypatch,
+):
+    """Failure should rollback, return physically, and then replan."""
+    node = NavigationNode()
+
+    try:
+        node._odometry_callback(
+            odometry_at(
+                1.0,
+                2.0,
+            )
+        )
+
+        prepare_cognitive_places(
+            node
+        )
+
+        replanned_place_id = (
+            node._place_memory.resolve_place(
+                Point2D(
+                    0.0,
+                    0.65,
+                )
+            )
+        )
+
+        assert replanned_place_id == 2
+
+        failed_target = planned_target()
+
+        replanned_target = NavigationActionTarget(
+            action_id=1,
+            source_place_id=0,
+            target_place_id=replanned_place_id,
+            target_position=Point2D(
+                0.0,
+                0.65,
+            ),
+            is_stationary=False,
+        )
+
+        executor = RecoveryMotionExecutor()
+
+        node._navigation_motion_executor = (
+            executor
+        )
+
+        lifecycle = {
+            "replanned": False,
+        }
+
+        events = []
+
+        def resolve_target():
+            if lifecycle["replanned"]:
+                return replanned_target
+
+            return failed_target
+
+        def record_failed_action(
+            action_id,
+        ):
+            events.append(
+                "failure"
+            )
+
+            assert action_id == 0
+
+            # AIMAPP learns failure while cognition still represents
+            # the predicted destination.
+            assert (
+                node._internal_cognitive_place_id
+                == failed_target.target_place_id
+            )
+
+            return failed_target
+
+        def replan_after_failed_action():
+            events.append(
+                "replan"
+            )
+
+            # Physical return must finish before replanning.
+            assert (
+                node._internal_cognitive_place_id
+                == failed_target.source_place_id
+            )
+
+            lifecycle["replanned"] = True
+
+            return object()
+
+        monkeypatch.setattr(
+            node._navigation_core_bridge,
+            "resolve_planned_action_target",
+            resolve_target,
+        )
+
+        monkeypatch.setattr(
+            node._navigation_core_bridge,
+            "record_failed_action",
+            record_failed_action,
+        )
+
+        monkeypatch.setattr(
+            node._navigation_core_bridge,
+            "replan_after_failed_action",
+            replan_after_failed_action,
+        )
+
+        node._latest_scan_message = (
+            LaserScan()
+        )
+
+        assert (
+            node.start_planned_navigation_action()
+            is True
+        )
+
+        # Planning predicts the failed destination first.
+        assert (
+            node._internal_cognitive_place_id
+            == 1
+        )
+
+        failure_update = (
+            node.step_navigation_action()
+        )
+
+        assert (
+            failure_update.failed_action_id
+            == 0
+        )
+
+        # Failure evidence was learned before rollback.
+        assert events == [
+            "failure",
+        ]
+
+        # Cognition is restored immediately to the source.
+        assert (
+            node._internal_cognitive_place_id
+            == 0
+        )
+
+        assert (
+            node._internal_cognitive_state.position
+            == Point2D(
+                0.0,
+                0.0,
+            )
+        )
+
+        assert (
+            node._returning_after_failed_action
+            is True
+        )
+
+        # Initial target, then physical return target.
+        assert len(
+            executor.started_targets
+        ) == 2
+
+        return_target = (
+            executor.started_targets[1]
+        )
+
+        assert (
+            return_target.target_place_id
+            == 0
+        )
+
+        assert (
+            return_target.target_position
+            == Point2D(
+                0.0,
+                0.0,
+            )
+        )
+
+        recovery_update = (
+            node.step_navigation_action()
+        )
+
+        # Returning itself is not learned as a cognitive action.
+        assert (
+            recovery_update.completed_action_id
+            is None
+        )
+
+        assert (
+            recovery_update.failed_action_id
+            is None
+        )
+
+        assert events == [
+            "failure",
+            "replan",
+        ]
+
+        assert (
+            node._returning_after_failed_action
+            is False
+        )
+
+        # Replanning immediately starts the next physical target.
+        assert len(
+            executor.started_targets
+        ) == 3
+
+        assert (
+            executor.active_target
+            == replanned_target
+        )
+
+        # Cognition again predicts the newly replanned target.
+        assert (
+            node._internal_cognitive_place_id
+            == replanned_place_id
+        )
+
+        assert (
+            node._internal_cognitive_state.position
+            == replanned_target.target_position
+        )
+
+    finally:
+        node.destroy_node()

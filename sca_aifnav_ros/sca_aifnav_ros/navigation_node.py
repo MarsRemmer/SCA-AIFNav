@@ -443,6 +443,14 @@ class NavigationNode(Node):
         return self._panorama_coordinator.state
 
     @property
+    def panorama_acquisition_active(self) -> bool:
+        """Return whether panorama motion currently owns /cmd_vel."""
+        return (
+            self._panorama_coordinator is not None
+            and not self._panorama_coordinator.is_complete
+        )
+
+    @property
     def has_visual_observation(self) -> bool:
         """Return whether the latest panorama has been visually processed."""
         return (
@@ -779,6 +787,12 @@ class NavigationNode(Node):
         self,
     ) -> bool:
         """Start one panorama cycle when yaw and cameras are ready."""
+        if self.navigation_action_active:
+            raise RuntimeError(
+                "cannot start panorama acquisition while "
+                "a navigation action is active"
+            )
+
         if (
             self._latest_physical_yaw_rad is None
             or not self.camera_batch_ready
@@ -833,6 +847,26 @@ class NavigationNode(Node):
             coordinator.state
             is PanoramaCoordinatorState.ROTATING
         ):
+            if coordinator.rotation_timed_out:
+                goal_yaw_rad = (
+                    coordinator.current_goal_yaw_rad
+                )
+
+                self.stop_panorama_rotation()
+
+                self.get_logger().warning(
+                    (
+                        "Panorama rotation timeout "
+                        f"({coordinator.rotation_timeout_sec:.1f}s) "
+                        f"for goal {goal_yaw_rad:.3f} rad; "
+                        "skipping this capture"
+                    )
+                )
+
+                coordinator.skip_timed_out_rotation()
+
+                return coordinator.state
+
             command = self.publish_panorama_rotation(
                 coordinator.current_goal_yaw_rad
             )
@@ -1158,6 +1192,12 @@ class NavigationNode(Node):
         self,
     ) -> bool:
         """Predict the cognitive transition, then start physical motion."""
+        if self.panorama_acquisition_active:
+            raise RuntimeError(
+                "cannot start navigation action while "
+                "panorama acquisition is active"
+            )
+
         target = (
             self._navigation_core_bridge
             .resolve_planned_action_target()

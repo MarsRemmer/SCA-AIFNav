@@ -19,8 +19,10 @@ from sca_aifnav_core.spatial_memory import (
 )
 
 
-def coordinator_with_action_zero_target():
-    """Create a simple two-place navigation model."""
+def coordinator_with_action_zero_target(
+    target_distance=0.65,
+):
+    """Create a two-place model with one action-zero target."""
     memory = BaselinePlaceMemory(
         influence_radius=0.5
     )
@@ -32,15 +34,26 @@ def coordinator_with_action_zero_target():
         )
     )
 
-    distance = 0.65
+    distance = float(
+        target_distance
+    )
+
     angle = math.radians(
         15.0
     )
 
     memory.resolve_place(
         Point2D(
-            distance * math.cos(angle),
-            distance * math.sin(angle),
+            x=round(
+                distance
+                * math.cos(angle),
+                2,
+            ),
+            y=round(
+                distance
+                * math.sin(angle),
+                2,
+            ),
         )
     )
 
@@ -105,6 +118,33 @@ def test_blocked_direction_is_not_given_to_mcts():
     )
 
     assert 0 not in actions
+    assert 12 in actions
+
+
+def test_clear_known_in_sector_target_is_retained():
+    """Restrictive mode should retain a known in-sector cognitive node."""
+    coordinator, origin_id = (
+        coordinator_with_action_zero_target(
+            target_distance=0.60,
+        )
+    )
+
+    distances = [
+        0.0
+        for _ in range(12)
+    ]
+
+    distances[0] = 0.65
+
+    actions = (
+        coordinator
+        .restrictive_possible_actions(
+            current_place_id=origin_id,
+            obstacle_distances=distances,
+        )
+    )
+
+    assert 0 in actions
     assert 12 in actions
 
 

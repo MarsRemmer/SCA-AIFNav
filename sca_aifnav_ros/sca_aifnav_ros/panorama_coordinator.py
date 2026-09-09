@@ -1,10 +1,15 @@
 """Non-blocking coordination for panoramic camera acquisition."""
 
 from enum import Enum
+import math
+import time
 
 from sca_aifnav_ros.panorama_acquisition import (
     PanoramaAcquisitionSession,
 )
+
+
+PANORAMA_ROTATION_TIMEOUT_SEC = 120.0
 
 
 class PanoramaCoordinatorState(Enum):
@@ -24,8 +29,34 @@ class PanoramaCoordinator:
         current_yaw_rad: float,
         action_count: int,
         camera_count: int = 3,
+        rotation_timeout_sec: float = (
+            PANORAMA_ROTATION_TIMEOUT_SEC
+        ),
+        clock=None,
     ) -> None:
         """Create one non-blocking panorama coordination cycle."""
+        if clock is None:
+            clock = time.monotonic
+
+        if not callable(
+            clock
+        ):
+            raise TypeError(
+                "clock must be callable"
+            )
+
+        if not math.isfinite(
+            rotation_timeout_sec
+        ):
+            raise ValueError(
+                "rotation_timeout_sec must be finite"
+            )
+
+        if rotation_timeout_sec <= 0.0:
+            raise ValueError(
+                "rotation_timeout_sec must be positive"
+            )
+
         self._session = PanoramaAcquisitionSession(
             current_yaw_rad=current_yaw_rad,
             action_count=action_count,
@@ -33,10 +64,20 @@ class PanoramaCoordinator:
         )
 
         self._camera_count = camera_count
+
         self._state = (
             PanoramaCoordinatorState.WAIT_INITIAL_CAPTURE
         )
+
         self._reached_revisions = None
+
+        self._clock = clock
+
+        self._rotation_timeout_sec = float(
+            rotation_timeout_sec
+        )
+
+        self._rotation_started_at = None
 
     @property
     def state(
@@ -51,6 +92,16 @@ class PanoramaCoordinator:
     ) -> int:
         """Return the number of captured camera batches."""
         return self._session.batch_count
+
+    @property
+    def skipped_rotation_count(
+        self,
+    ) -> int:
+        """Return the number of timed-out rotation captures."""
+        return (
+            self._session
+            .skipped_rotation_count
+        )
 
     @property
     def is_complete(
@@ -81,6 +132,39 @@ class PanoramaCoordinator:
     ):
         """Return camera revisions recorded at the last reached goal."""
         return self._reached_revisions
+
+    @property
+    def rotation_timeout_sec(
+        self,
+    ) -> float:
+        """Return the per-rotation timeout in seconds."""
+        return self._rotation_timeout_sec
+
+    @property
+    def rotation_timed_out(
+        self,
+    ) -> bool:
+        """Return whether the current rotation exceeded its time limit."""
+        if (
+            self._state
+            is not PanoramaCoordinatorState.ROTATING
+            or self._rotation_started_at is None
+        ):
+            return False
+
+        elapsed = (
+            float(
+                self._clock()
+            )
+            - self._rotation_started_at
+        )
+
+        # AIMAPP uses:
+        # time.time() - start_time > self.timeout
+        return (
+            elapsed
+            > self._rotation_timeout_sec
+        )
 
     def capture_initial_batch(
         self,
@@ -125,9 +209,47 @@ class PanoramaCoordinator:
             )
         )
 
+        self._rotation_started_at = None
+
         self._state = (
             PanoramaCoordinatorState.WAIT_FRESH_CAMERAS
         )
+
+    def skip_timed_out_rotation(
+        self,
+    ) -> None:
+        """Skip one timed-out rotation capture and continue the plan."""
+        if (
+            self._state
+            is not PanoramaCoordinatorState.ROTATING
+        ):
+            raise RuntimeError(
+                "rotation target is not currently active"
+            )
+
+        if not self.rotation_timed_out:
+            raise RuntimeError(
+                "rotation target has not timed out"
+            )
+
+        self._session.skip_rotation_goal()
+
+        self._reached_revisions = None
+
+        if self._session.is_complete:
+            self._state = (
+                PanoramaCoordinatorState.COMPLETE
+            )
+
+            self._rotation_started_at = None
+
+            return
+
+        self._state = (
+            PanoramaCoordinatorState.ROTATING
+        )
+
+        self._start_rotation_timer()
 
     def fresh_camera_batch_ready(
         self,
@@ -209,10 +331,23 @@ class PanoramaCoordinator:
             self._state = (
                 PanoramaCoordinatorState.COMPLETE
             )
+
+            self._rotation_started_at = None
+
             return
 
         self._state = (
             PanoramaCoordinatorState.ROTATING
+        )
+
+        self._start_rotation_timer()
+
+    def _start_rotation_timer(
+        self,
+    ) -> None:
+        """Start wall-clock timing for one rotation target."""
+        self._rotation_started_at = float(
+            self._clock()
         )
 
     def _validate_revisions(

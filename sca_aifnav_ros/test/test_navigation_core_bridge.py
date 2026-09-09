@@ -234,6 +234,22 @@ def test_default_bridge_uses_reference_map_growth_parameters():
     )
 
 
+def test_default_bridge_uses_reference_mcts_parameters():
+    """Default runtime should reproduce reference MCTS parameters."""
+    bridge = NavigationCoreBridge()
+
+    assert bridge.coordinator.num_simulations == 30
+
+    assert (
+        bridge.coordinator.max_rollout_depth
+        == 10
+    )
+
+    assert bridge.coordinator.c_param == pytest.approx(
+        5.0
+    )
+
+
 def test_default_bridge_uses_exploration_navigation_mode():
     """Default runtime should reproduce reference exploration mode."""
     bridge = NavigationCoreBridge()

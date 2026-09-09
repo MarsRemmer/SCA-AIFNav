@@ -74,6 +74,7 @@ class NavigationCoreBridge:
                     motion_set=motion_set,
                     robot_dimension=0.3,
                     max_lookahead_steps=8,
+                    max_rollout_depth=10,
                     use_utility=False,
                     use_state_information_gain=True,
                     use_inductive_inference=False,
@@ -536,6 +537,15 @@ class NavigationCoreBridge:
         if not self._failure_possible_actions:
             raise RuntimeError(
                 "no navigation actions remain after failures"
+            )
+
+        if not any(
+            self.motion_set.is_directional(candidate)
+            for candidate in self._failure_possible_actions
+        ):
+            raise RuntimeError(
+                "no directional navigation actions remain "
+                "after failures"
             )
 
         source_place_id = (

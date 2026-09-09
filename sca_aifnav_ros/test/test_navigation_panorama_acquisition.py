@@ -406,3 +406,95 @@ def test_completed_images_are_unavailable_before_completion(
         )
     finally:
         node.destroy_node()
+
+
+def test_panorama_cannot_start_during_navigation_motion(
+    ros_context,
+    bridge,
+):
+    """Navigation motion should retain exclusive ownership of /cmd_vel."""
+    node, publisher = ready_node(
+        bridge
+    )
+
+    try:
+        node._navigation_motion_executor._active_target = (
+            object()
+        )
+
+        assert (
+            node.navigation_action_active
+            is True
+        )
+
+        with pytest.raises(
+            RuntimeError,
+            match="navigation action is active",
+        ):
+            node.start_panorama_acquisition()
+
+        assert (
+            node.panorama_acquisition_state
+            is None
+        )
+
+        assert publisher.messages == []
+
+    finally:
+        node._navigation_motion_executor._active_target = None
+        node.destroy_node()
+
+
+def test_navigation_cannot_start_during_panorama(
+    ros_context,
+    bridge,
+    monkeypatch,
+):
+    """Panorama rotation should retain exclusive ownership of /cmd_vel."""
+    node, _ = ready_node(
+        bridge
+    )
+
+    target_resolution_calls = []
+
+    try:
+        assert (
+            node.start_panorama_acquisition()
+            is True
+        )
+
+        assert (
+            node.panorama_acquisition_active
+            is True
+        )
+
+        def resolve_target():
+            target_resolution_calls.append(
+                True
+            )
+
+            return None
+
+        monkeypatch.setattr(
+            node._navigation_core_bridge,
+            "resolve_planned_action_target",
+            resolve_target,
+        )
+
+        with pytest.raises(
+            RuntimeError,
+            match="panorama acquisition is active",
+        ):
+            node.start_planned_navigation_action()
+
+        # The core target must not even be resolved while panorama
+        # rotation owns the physical motion channel.
+        assert target_resolution_calls == []
+
+        assert (
+            node.navigation_action_active
+            is False
+        )
+
+    finally:
+        node.destroy_node()

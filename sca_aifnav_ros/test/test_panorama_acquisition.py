@@ -409,3 +409,80 @@ def test_invalid_camera_batch_is_rejected():
                 coded_image(20),
             )
         )
+
+
+def test_skipped_rotation_advances_goal_without_capture():
+    """A timed-out target should advance without adding a camera batch."""
+    session = PanoramaAcquisitionSession(
+        current_yaw_rad=0.0,
+        action_count=13,
+    )
+
+    session.capture_batch(
+        camera_batch(
+            10,
+            20,
+            30,
+        )
+    )
+
+    assert (
+        session.next_goal_yaw_rad
+        == pytest.approx(
+            math.pi / 4.0
+        )
+    )
+
+    session.skip_rotation_goal()
+
+    assert session.batch_count == 1
+    assert session.skipped_rotation_count == 1
+
+    assert (
+        session.next_goal_yaw_rad
+        == pytest.approx(
+            math.pi / 2.0
+        )
+    )
+
+
+def test_skipped_rotation_allows_completion_with_fewer_images():
+    """Skipped captures should match AIMAPP's partial panorama behavior."""
+    session = PanoramaAcquisitionSession(
+        current_yaw_rad=0.0,
+        action_count=13,
+    )
+
+    session.capture_batch(
+        camera_batch(
+            10,
+            20,
+            30,
+        )
+    )
+
+    session.skip_rotation_goal()
+
+    session.capture_batch(
+        camera_batch(
+            12,
+            22,
+            32,
+        )
+    )
+
+    session.capture_batch(
+        camera_batch(
+            13,
+            23,
+            33,
+        )
+    )
+
+    assert session.is_complete is True
+    assert session.batch_count == 3
+    assert session.skipped_rotation_count == 1
+
+    images = session.compiled_images()
+
+    assert len(images) == 9
