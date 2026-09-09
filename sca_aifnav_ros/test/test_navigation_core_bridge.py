@@ -219,6 +219,21 @@ def test_no_action_can_be_recorded_before_planning():
         )
 
 
+def test_default_bridge_uses_reference_map_growth_parameters():
+    """Default runtime should reproduce reference cognitive-map growth."""
+    bridge = NavigationCoreBridge()
+
+    assert (
+        bridge.coordinator.learning.robot_dimension
+        == pytest.approx(0.3)
+    )
+
+    assert (
+        bridge.coordinator.learning.max_lookahead_steps
+        == 8
+    )
+
+
 def test_default_bridge_uses_exploration_navigation_mode():
     """Default runtime should reproduce reference exploration mode."""
     bridge = NavigationCoreBridge()

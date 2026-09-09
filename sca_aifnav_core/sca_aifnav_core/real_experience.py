@@ -44,9 +44,14 @@ def update_real_experience(
     """
     Apply the baseline real-observation update sequence.
 
-    Real observation inference uses a uniform state prior because baseline calls
-    infer_states without an action in agent_step_update. Transition learning
-    then compares that inferred belief with the stored previous belief.
+    Real state inference first predicts through B using the executed action,
+    then conditions that predicted prior on the current observations.
+
+    The preliminary inference does not replace the stored belief. After B
+    learning, a second inference from the previous stored belief becomes the
+    learning belief. That belief is saved before A learning, matching the
+    reference infer_states(save_hist=True) lifecycle. The final posterior is
+    therefore predicted from the learning belief using the updated B and A.
     """
     if not observation_prepared:
         prepare_real_observation_dimensions(
@@ -55,10 +60,17 @@ def update_real_experience(
             place_observation=place_observation,
         )
 
-    preliminary = _infer_from_uniform_prior(
+    reference_belief = _align_belief_dimension(
+        model.state_belief,
+        model.num_states,
+    )
+
+    preliminary = _infer_from_action_prior(
         model=model,
         sensory_observation=sensory_observation,
         place_observation=place_observation,
+        action_id=action_id,
+        reference_belief=reference_belief,
     )
 
     transition_updated = False
@@ -101,10 +113,21 @@ def update_real_experience(
 
             reverse_updated = True
 
-    learning_belief = _infer_from_uniform_prior(
+    # AIMAPP calls infer_states(obs) here after updating B.
+    # The preliminary inference was not saved, so this inference still
+    # starts from the belief stored before the current physical update.
+    learning_belief = _infer_from_action_prior(
         model=model,
         sensory_observation=sensory_observation,
         place_observation=place_observation,
+        action_id=action_id,
+        reference_belief=reference_belief,
+    )
+
+    # infer_states(obs) uses save_hist=True in update_believes_with_obs(),
+    # so AIMAPP makes this the current qs before updating A.
+    model.state_belief = (
+        learning_belief.copy()
     )
 
     learn_multimodal_observation(
@@ -114,10 +137,14 @@ def update_real_experience(
         state_belief=learning_belief,
     )
 
-    posterior = _infer_from_uniform_prior(
+    # agent_step_update() then calls infer_states() again. At this point
+    # get_belief_over_states() returns the saved learning belief above.
+    posterior = _infer_from_action_prior(
         model=model,
         sensory_observation=sensory_observation,
         place_observation=place_observation,
+        action_id=action_id,
+        reference_belief=learning_belief,
     )
 
     model.state_belief = posterior.copy()
@@ -214,22 +241,28 @@ def prepare_real_observation_dimensions(
     )
 
 
-def _infer_from_uniform_prior(
+def _infer_from_action_prior(
     model: BaselineGenerativeModel,
     sensory_observation: int,
     place_observation: int,
+    action_id: int,
+    reference_belief: np.ndarray,
 ) -> np.ndarray:
-    """Infer baseline real state belief using its uniform D prior."""
-    uniform_prior = np.full(
+    """Infer one posterior from the executed-action predicted prior."""
+    reference = _align_belief_dimension(
+        reference_belief,
         model.num_states,
-        1.0 / model.num_states,
-        dtype=float,
+    )
+
+    action_prior = model.predicted_state_prior(
+        action_id=action_id,
+        belief=reference,
     )
 
     return model.infer_state_belief(
         sensory_observation=sensory_observation,
         place_observation=place_observation,
-        prior=uniform_prior,
+        prior=action_prior,
     )
 
 

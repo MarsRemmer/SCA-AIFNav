@@ -59,17 +59,18 @@ def test_initial_unknown_likelihood_is_point_zero_one():
     )
 
 
-def test_initial_concentrations_remain_one():
+def test_initial_concentrations_match_uniform_A_prior():
+    """Initial pA should preserve the pre-runtime uniform A prior."""
     model = BaselineGenerativeModel()
 
     np.testing.assert_allclose(
         model.sensory_concentration,
-        1.0,
+        0.5,
     )
 
     np.testing.assert_allclose(
         model.place_concentration,
-        1.0,
+        0.5,
     )
 
 

@@ -901,13 +901,19 @@ class NavigationNode(Node):
             self._visual_observer.initial_confidence_threshold,
         )
 
-        result = self._visual_observer.process_attempt(
-            images=images,
-            confidence_threshold=(
-                confidence_threshold
-            ),
-            attempt_count=attempt_count,
-        )
+        try:
+            result = self._visual_observer.process_attempt(
+                images=images,
+                confidence_threshold=(
+                    confidence_threshold
+                ),
+                attempt_count=attempt_count,
+            )
+        except Exception as error:
+            self.get_logger().warning(
+                str(error)
+            )
+            result = None
 
         if result is not None:
             if attempt_count > 1:

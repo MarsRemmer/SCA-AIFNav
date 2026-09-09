@@ -73,6 +73,7 @@ class NavigationCoreBridge:
                     memory=memory,
                     motion_set=motion_set,
                     robot_dimension=0.3,
+                    max_lookahead_steps=8,
                     use_utility=False,
                     use_state_information_gain=True,
                     use_inductive_inference=False,

@@ -35,7 +35,7 @@ def test_sensory_learning_adds_five_pseudocounts():
         1,
         1,
     ] == pytest.approx(
-        6.0
+        5.5
     )
 
 
@@ -67,7 +67,7 @@ def test_learned_observation_becomes_likely():
         1,
         1,
     ] == pytest.approx(
-        6.0 / 7.0
+        5.5 / 6.0
     )
 
 

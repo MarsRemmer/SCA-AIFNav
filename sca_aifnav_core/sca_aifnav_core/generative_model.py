@@ -47,12 +47,16 @@ class BaselineGenerativeModel:
             num_states,
         )
 
-        self.sensory_concentration = np.ones_like(
-            self.sensory_likelihood
+        # AIMAPP initializes pA directly from the initially uniform A.
+        # Runtime A is modified afterwards, so the initial pA prior must
+        # remain the original uniform likelihood rather than an all-one
+        # concentration table.
+        self.sensory_concentration = (
+            self.sensory_likelihood.copy()
         )
 
-        self.place_concentration = np.ones_like(
-            self.place_likelihood
+        self.place_concentration = (
+            self.place_likelihood.copy()
         )
 
         self.transition_likelihood = create_transition_table(

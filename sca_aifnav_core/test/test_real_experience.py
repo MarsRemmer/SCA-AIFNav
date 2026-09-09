@@ -44,6 +44,47 @@ def test_first_real_update_can_skip_transition_history(
     assert not result.reverse_transition_updated
 
 
+def test_preliminary_inference_uses_executed_action_prior(
+    motion_set,
+):
+    """Real inference should condition on B for the executed action."""
+    model = BaselineGenerativeModel()
+
+    model.sensory_likelihood[:] = 0.5
+    model.place_likelihood[:] = 0.5
+
+    model.state_belief = np.array(
+        [1.0, 0.0]
+    )
+
+    model.transition_likelihood[
+        :,
+        :,
+        0,
+    ] = np.array(
+        [
+            [0.1, 0.5],
+            [0.9, 0.5],
+        ]
+    )
+
+    result = update_real_experience(
+        model=model,
+        sensory_observation=0,
+        place_observation=0,
+        action_id=0,
+        previous_belief=None,
+        motion_set=motion_set,
+    )
+
+    np.testing.assert_allclose(
+        result.preliminary_belief,
+        np.array(
+            [0.1, 0.9]
+        ),
+    )
+
+
 def test_preliminary_inference_identifies_place_one(
     motion_set,
 ):

@@ -62,9 +62,17 @@ class FakeRetryObserver:
             )
         )
 
-        return self.responses.pop(
+        response = self.responses.pop(
             0
         )
+
+        if isinstance(
+            response,
+            Exception,
+        ):
+            raise response
+
+        return response
 
 
 class CompletePanoramaCoordinator:
@@ -131,7 +139,9 @@ def test_failed_attempt_reacquires_new_panorama(
 
     observer = FakeRetryObserver(
         [
-            None,
+            RuntimeError(
+                "visual processing failed"
+            ),
             visual_result(),
         ]
     )
