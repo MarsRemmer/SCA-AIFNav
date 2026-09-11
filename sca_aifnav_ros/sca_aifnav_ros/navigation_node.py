@@ -139,6 +139,17 @@ class NavigationNode(Node):
             1.0,
         )
 
+        # Pure experiment-control parameter.
+        #
+        # 0 keeps the normal SCA-AIFNav node unlimited.
+        # A positive value stops autonomous navigation only after
+        # that many physical actions have been successfully executed
+        # and incorporated into the following observation/update.
+        self.declare_parameter(
+            "experiment_action_limit",
+            0,
+        )
+
         odom_topic = self.get_parameter(
             "odom_topic"
         ).value
@@ -196,6 +207,23 @@ class NavigationNode(Node):
                 "panorama_control_period_sec"
             ).value
         )
+
+        experiment_action_limit = int(
+            self.get_parameter(
+                "experiment_action_limit"
+            ).value
+        )
+
+        if experiment_action_limit < 0:
+            raise ValueError(
+                "experiment_action_limit must be "
+                "zero or positive"
+            )
+
+        self._experiment_action_limit = (
+            experiment_action_limit
+        )
+        self._experiment_completed_actions = 0
 
         if panorama_control_period_sec <= 0.0:
             raise ValueError(
@@ -1584,6 +1612,56 @@ class NavigationNode(Node):
 
         self._returning_after_failed_action = True
 
+    @property
+    def experiment_completed_actions(self) -> int:
+        """Return physical actions incorporated into completed cycles."""
+        return self._experiment_completed_actions
+
+    def _record_experiment_decision(
+        self,
+        decision,
+    ) -> bool:
+        """
+        Count one AIMAPP-equivalent completed high-level action.
+
+        Bootstrap does not count because no physical action has yet
+        occurred.  A later decision with executed_action_id represents
+        one physical action that has completed and whose resulting
+        observation has now been incorporated into the model.
+
+        Returning True means the configured experiment limit has been
+        reached and no subsequent physical action should be started.
+        """
+        executed_action_id = getattr(
+            decision,
+            "executed_action_id",
+            None,
+        )
+
+        if executed_action_id is None:
+            return False
+
+        self._experiment_completed_actions += 1
+
+        if self._experiment_action_limit <= 0:
+            return False
+
+        if (
+            self._experiment_completed_actions
+            < self._experiment_action_limit
+        ):
+            return False
+
+        self._autonomous_navigation_active = False
+
+        self.get_logger().info(
+            "EXPERIMENT_COMPLETE "
+            f"actions={self._experiment_completed_actions} "
+            f"limit={self._experiment_action_limit}"
+        )
+
+        return True
+
     def start_autonomous_navigation(
         self,
     ) -> bool:
@@ -1638,6 +1716,16 @@ class NavigationNode(Node):
 
         if decision is None:
             return None
+
+        # AIMAPP exploration executes 200 high-level actions.
+        # The bootstrap decision is not itself an executed action.
+        # Stop only after the configured number of completed actions
+        # have been incorporated into the model, and before launching
+        # another physical action.
+        if self._record_experiment_decision(
+            decision
+        ):
+            return decision
 
         started = (
             self.start_planned_navigation_action()

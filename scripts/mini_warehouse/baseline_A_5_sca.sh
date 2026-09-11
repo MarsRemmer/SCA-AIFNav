@@ -25,9 +25,15 @@ source "$HOME/SCA-AIFNav-Project/sca_aifnav/runtime_ws/install/setup.bash"
 # optional environment variables that are not defined.
 set -u
 
-RESULT_ROOT="$HOME/SCA-AIFNav-Project/experiments/mini_warehouse/smoke"
+RESULT_ROOT="${SCA_RESULT_ROOT:-$HOME/SCA-AIFNav-Project/experiments/mini_warehouse/smoke}"
 STAMP="$(date +%Y%m%d_%H%M%S)"
-RUN_DIR="$RESULT_ROOT/sca_baseline_nav2_${STAMP}"
+RUN_DIR="${SCA_RUN_DIR:-$RESULT_ROOT/sca_baseline_nav2_${STAMP}}"
+EXPERIMENT_ACTION_LIMIT="${EXPERIMENT_ACTION_LIMIT:-0}"
+
+if ! [[ "$EXPERIMENT_ACTION_LIMIT" =~ ^[0-9]+$ ]]; then
+    echo "ERROR: EXPERIMENT_ACTION_LIMIT must be a non-negative integer."
+    exit 1
+fi
 
 mkdir -p "$RUN_DIR"
 
@@ -36,6 +42,7 @@ echo "SCA-AIFNav Mini Warehouse - Terminal 5"
 echo "Baseline + Nav2"
 echo "=========================================="
 echo "Results: $RUN_DIR"
+echo "Experiment action limit: $EXPERIMENT_ACTION_LIMIT"
 echo
 
 {
@@ -43,6 +50,7 @@ echo
     echo "method=sca_baseline"
     echo "motion_backend=nav2"
     echo "world=mini_warehouse"
+    echo "experiment_action_limit=$EXPERIMENT_ACTION_LIMIT"
     echo "sca_commit=$(git -C "$HOME/SCA-AIFNav-Project/sca_aifnav/runtime_ws/src/sca_aifnav" rev-parse HEAD)"
     echo "aimapp_reproduction_commit=$(git -C "$HOME/SCA-AIFNav-Project/aimapp/reproduction" rev-parse HEAD)"
 } > "$RUN_DIR/metadata.txt"
@@ -79,6 +87,7 @@ ros2 run sca_aifnav_ros navigation_node \
     --ros-args \
     -p use_sim_time:=true \
     -p navigation_motion_backend:=nav2 \
+    -p experiment_action_limit:="$EXPERIMENT_ACTION_LIMIT" \
     -p odom_topic:=/odom \
     -p agent_odom_topic:=/agent/odom \
     -p scan_topic:=/scan \
