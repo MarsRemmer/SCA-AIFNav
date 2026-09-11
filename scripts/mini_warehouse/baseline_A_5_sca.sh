@@ -25,7 +25,7 @@ source "$HOME/SCA-AIFNav-Project/sca_aifnav/runtime_ws/install/setup.bash"
 # optional environment variables that are not defined.
 set -u
 
-RESULT_ROOT="${SCA_RESULT_ROOT:-$HOME/SCA-AIFNav-Project/experiments/mini_warehouse/smoke}"
+RESULT_ROOT="${SCA_RESULT_ROOT:-$HOME/SCA-AIFNav-Project/results/mini_warehouse/smoke}"
 STAMP="$(date +%Y%m%d_%H%M%S)"
 RUN_DIR="${SCA_RUN_DIR:-$RESULT_ROOT/sca_baseline_nav2_${STAMP}}"
 EXPERIMENT_ACTION_LIMIT="${EXPERIMENT_ACTION_LIMIT:-0}"
@@ -52,7 +52,7 @@ echo
     echo "world=mini_warehouse"
     echo "experiment_action_limit=$EXPERIMENT_ACTION_LIMIT"
     echo "sca_commit=$(git -C "$HOME/SCA-AIFNav-Project/sca_aifnav/runtime_ws/src/sca_aifnav" rev-parse HEAD)"
-    echo "aimapp_reproduction_commit=$(git -C "$HOME/SCA-AIFNav-Project/aimapp/reproduction" rev-parse HEAD)"
+    echo "experiment_harness_commit=$(git -C "$HOME/SCA-AIFNav-Project/experiments" rev-parse HEAD)"
 } > "$RUN_DIR/metadata.txt"
 
 echo "Waiting for required ROS interfaces..."
