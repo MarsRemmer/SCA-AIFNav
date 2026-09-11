@@ -13,12 +13,17 @@
 # The high-level algorithm remains AIMAPP-aligned.
 # Translational navigation is delegated to Nav2.
 
-set -euo pipefail
+set -eo pipefail
 
 export PYTHONDONTWRITEBYTECODE=1
 
 source /opt/ros/humble/setup.bash
 source "$HOME/SCA-AIFNav-Project/sca_aifnav/runtime_ws/install/setup.bash"
+
+# Enable unset-variable checking only after ROS setup scripts
+# have finished, because ROS 2 Humble setup.bash may inspect
+# optional environment variables that are not defined.
+set -u
 
 RESULT_ROOT="$HOME/SCA-AIFNav-Project/experiments/mini_warehouse/smoke"
 STAMP="$(date +%Y%m%d_%H%M%S)"
@@ -59,11 +64,11 @@ do
     fi
 done
 
-if timeout 10 ros2 action type /navigate_to_pose >/dev/null 2>&1; then
-    echo "OK: /navigate_to_pose"
+if ros2 action list | grep -qx "/navigate_to_pose"; then
+    echo "OK: /navigate_to_pose already available"
 else
-    echo "ERROR: Nav2 /navigate_to_pose action is unavailable"
-    exit 1
+    echo "INFO: /navigate_to_pose is not visible yet"
+    echo "INFO: continuing so SCA can publish /agent/odom while Nav2 finishes startup"
 fi
 
 echo
