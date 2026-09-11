@@ -171,16 +171,19 @@ def test_one_real_step_exactly_updates_A_and_B():
     np.testing.assert_allclose(
         experience.preliminary_belief,
         expected_state_one,
+        atol=1e-12,
     )
 
     np.testing.assert_allclose(
         experience.learning_belief,
         expected_state_one,
+        atol=1e-12,
     )
 
     np.testing.assert_allclose(
         experience.posterior_belief,
         expected_state_one,
+        atol=1e-12,
     )
 
     assert experience.transition_updated is True
@@ -233,6 +236,7 @@ def test_one_real_step_exactly_updates_A_and_B():
     np.testing.assert_allclose(
         model.transition_concentration,
         expected_pB,
+        atol=1e-12,
     )
 
     # --------------------------------------------------------
@@ -257,6 +261,7 @@ def test_one_real_step_exactly_updates_A_and_B():
     np.testing.assert_allclose(
         model.transition_likelihood,
         expected_B,
+        atol=1e-12,
     )
 
     # --------------------------------------------------------

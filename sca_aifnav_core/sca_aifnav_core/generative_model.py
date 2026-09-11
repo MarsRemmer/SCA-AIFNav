@@ -12,6 +12,16 @@ from sca_aifnav_core.probability_tables import (
 
 INITIAL_UNKNOWN_LIKELIHOOD = 0.01
 
+# AIMAPP's bundled pymdp implementation regularizes probabilities
+# before taking logarithms in state inference:
+#
+#     EPS_VAL = 1e-16
+#     log(x + EPS_VAL)
+#
+# Keep the same value here so exact-zero A/B entries retain the
+# reference AIMAPP inference semantics.
+AIMAPP_LOG_EPSILON = 1e-16
+
 
 class BaselineGenerativeModel:
     """
@@ -162,7 +172,24 @@ class BaselineGenerativeModel:
                     "prior must contain finite values"
                 )
 
-        posterior_weight = prior.copy()
+        # AIMAPP ultimately calls its modified pymdp
+        # update_posterior_states(). For the single hidden-state factor
+        # used by this baseline, that reduces to:
+        #
+        #   joint_likelihood = product_m A_m[o_m | s]
+        #   q(s) = softmax(
+        #       log(joint_likelihood + EPS)
+        #       + log(prior + EPS)
+        #   )
+        #
+        # This is intentionally not implemented as a direct
+        # prior * likelihood normalization. AIMAPP adds EPS before
+        # taking logarithms, so exact-zero support in A or in the
+        # predicted B prior remains numerically inferable.
+        joint_likelihood = np.ones(
+            self.num_states,
+            dtype=float,
+        )
 
         if sensory_observation is not None:
             self._validate_initial_observation(
@@ -171,7 +198,7 @@ class BaselineGenerativeModel:
                 "sensory_observation",
             )
 
-            posterior_weight *= self.sensory_likelihood[
+            joint_likelihood *= self.sensory_likelihood[
                 sensory_observation,
                 :,
             ]
@@ -183,14 +210,39 @@ class BaselineGenerativeModel:
                 "place_observation",
             )
 
-            posterior_weight *= self.place_likelihood[
+            joint_likelihood *= self.place_likelihood[
                 place_observation,
                 :,
             ]
 
+        log_posterior = (
+            np.log(
+                joint_likelihood
+                + AIMAPP_LOG_EPSILON
+            )
+            + np.log(
+                prior
+                + AIMAPP_LOG_EPSILON
+            )
+        )
+
+        # AIMAPP's maths.softmax() first subtracts the maximum.
+        # Preserve that numerically stable implementation here.
+        shifted = (
+            log_posterior
+            - np.max(log_posterior)
+        )
+
+        posterior_weight = np.exp(
+            shifted
+        )
+
         total = posterior_weight.sum()
 
-        if total <= 0.0:
+        if (
+            not np.isfinite(total)
+            or total <= 0.0
+        ):
             raise ValueError(
                 "posterior cannot be normalized"
             )

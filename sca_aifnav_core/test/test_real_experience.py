@@ -102,6 +102,7 @@ def test_preliminary_inference_identifies_place_one(
     np.testing.assert_allclose(
         result.preliminary_belief,
         np.array([0.0, 1.0]),
+        atol=1e-12,
     )
 
 

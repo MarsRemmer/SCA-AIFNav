@@ -124,6 +124,7 @@ def test_first_ghost_uses_reserved_state_one(
     np.testing.assert_allclose(
         result.posterior,
         np.array([0.0, 1.0]),
+        atol=1e-12,
     )
 
 

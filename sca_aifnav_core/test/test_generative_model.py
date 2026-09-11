@@ -134,10 +134,24 @@ def test_partial_place_inference_identifies_state_one():
         prior=prior,
     )
 
+    # AIMAPP regularizes probabilities with EPS_VAL = 1e-16
+    # before taking logarithms. Therefore an impossible state is
+    # represented by an extremely small posterior rather than an
+    # exact numerical zero.
     np.testing.assert_allclose(
         posterior,
-        np.array([0.0, 1.0]),
+        np.array(
+            [
+                1e-16,
+                1.0,
+            ]
+        ),
+        rtol=1e-7,
+        atol=1e-18,
     )
+
+    assert posterior[0] < 1e-15
+    assert posterior[1] > 1.0 - 1e-15
 
 
 def test_register_existing_place_does_not_expand_state():
@@ -429,4 +443,81 @@ def test_uniform_posterior_keeps_current_place():
             observation_count=1,
         )
         == -1
+    )
+
+
+def test_zero_support_inference_matches_aimapp_log_regularization():
+    """
+    Verify AIMAPP log regularization for exact-zero support.
+
+    Exact-zero prior/likelihood support must follow AIMAPP's
+    spm_log_single + softmax behaviour instead of failing normalization.
+    """
+    model = BaselineGenerativeModel()
+
+    # Initial sensory observation 1 has likelihood:
+    #
+    #     [0.0, 0.01]
+    #
+    # Use an exact prior concentrated on state 0. A direct
+    # likelihood * prior calculation therefore becomes [0, 0],
+    # which was the runtime failure observed during navigation.
+    prior = np.array(
+        [
+            1.0,
+            0.0,
+        ],
+        dtype=float,
+    )
+
+    posterior = model.infer_state_belief(
+        sensory_observation=1,
+        prior=prior,
+    )
+
+    likelihood = (
+        model.sensory_likelihood[
+            1,
+            :,
+        ]
+    )
+
+    epsilon = 1e-16
+
+    reference_log_score = (
+        np.log(
+            likelihood
+            + epsilon
+        )
+        + np.log(
+            prior
+            + epsilon
+        )
+    )
+
+    reference_weight = np.exp(
+        reference_log_score
+        - np.max(
+            reference_log_score
+        )
+    )
+
+    reference = (
+        reference_weight
+        / reference_weight.sum()
+    )
+
+    np.testing.assert_allclose(
+        posterior,
+        reference,
+        rtol=1e-12,
+        atol=1e-15,
+    )
+
+    assert np.isfinite(
+        posterior
+    ).all()
+
+    assert posterior.sum() == pytest.approx(
+        1.0
     )
