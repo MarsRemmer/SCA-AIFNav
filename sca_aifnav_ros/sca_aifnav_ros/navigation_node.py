@@ -1,5 +1,7 @@
 """ROS 2 navigation node for SCA-AIFNav integration."""
 
+import copy
+
 import rclpy
 from geometry_msgs.msg import Twist, Vector3
 from nav_msgs.msg import Odometry
@@ -27,6 +29,9 @@ from sca_aifnav_ros.navigation_core_bridge import (
 from sca_aifnav_ros.navigation_motion_executor import (
     NavigationMotionExecutor,
     NavigationMotionUpdate,
+)
+from sca_aifnav_ros.nav2_motion_executor import (
+    Nav2MotionExecutor,
 )
 from sca_aifnav_ros.navigation_observation import (
     capture_navigation_observation as build_navigation_observation,
@@ -80,6 +85,11 @@ class NavigationNode(Node):
         )
 
         self.declare_parameter(
+            "agent_odom_topic",
+            "/agent/odom",
+        )
+
+        self.declare_parameter(
             "scan_topic",
             "/scan",
         )
@@ -102,6 +112,11 @@ class NavigationNode(Node):
         self.declare_parameter(
             "cmd_vel_topic",
             "/cmd_vel",
+        )
+
+        self.declare_parameter(
+            "navigation_motion_backend",
+            "potential_field",
         )
 
         self.declare_parameter(
@@ -128,6 +143,10 @@ class NavigationNode(Node):
             "odom_topic"
         ).value
 
+        agent_odom_topic = self.get_parameter(
+            "agent_odom_topic"
+        ).value
+
         scan_topic = self.get_parameter(
             "scan_topic"
         ).value
@@ -135,6 +154,12 @@ class NavigationNode(Node):
         cmd_vel_topic = self.get_parameter(
             "cmd_vel_topic"
         ).value
+
+        navigation_motion_backend = str(
+            self.get_parameter(
+                "navigation_motion_backend"
+            ).value
+        ).strip().lower()
 
         camera_topic = self.get_parameter(
             "camera_topic"
@@ -217,9 +242,31 @@ class NavigationNode(Node):
         )
         self._latest_navigation_decision = None
 
-        self._navigation_motion_executor = (
-            NavigationMotionExecutor()
+        self._navigation_motion_backend = (
+            navigation_motion_backend
         )
+
+        if navigation_motion_backend == "nav2":
+            self._navigation_motion_executor = (
+                Nav2MotionExecutor(
+                    node=self,
+                )
+            )
+
+        elif navigation_motion_backend in (
+            "potential_field",
+            "pf",
+        ):
+            self._navigation_motion_executor = (
+                NavigationMotionExecutor()
+            )
+
+        else:
+            raise ValueError(
+                "navigation_motion_backend must be "
+                "'nav2' or 'potential_field'"
+            )
+
         self._latest_navigation_motion_update = None
         self._latest_scan_message = None
 
@@ -276,6 +323,14 @@ class NavigationNode(Node):
                 Twist,
                 cmd_vel_topic,
                 command_qos,
+            )
+        )
+
+        self._agent_odom_publisher = (
+            self.create_publisher(
+                Odometry,
+                agent_odom_topic,
+                10,
             )
         )
 
@@ -558,6 +613,53 @@ class NavigationNode(Node):
         return self._scan_revision
 
     @staticmethod
+    def _aligned_agent_odometry_message(
+        physical_message: Odometry,
+        aligned_state: CognitiveOdomState,
+    ) -> Odometry:
+        """
+        Express physical odometry in the current cognitive frame.
+
+        AIMAPP exposes its shifted odometry as /agent/odom and Nav2
+        consumes that topic.  SCA-AIFNav already maintains the same
+        translation alignment inside OdometryAdapter, so this method
+        publishes that aligned state without modifying raw /odom.
+
+        Orientation, velocity, covariance, frame ids, and timestamp are
+        preserved from the physical odometry message.  Only planar
+        position is replaced by the aligned cognitive-frame position.
+        """
+        if not isinstance(
+            physical_message,
+            Odometry,
+        ):
+            raise TypeError(
+                "physical_message must be an Odometry"
+            )
+
+        if not isinstance(
+            aligned_state,
+            CognitiveOdomState,
+        ):
+            raise TypeError(
+                "aligned_state must be a CognitiveOdomState"
+            )
+
+        message = copy.deepcopy(
+            physical_message
+        )
+
+        message.pose.pose.position.x = float(
+            aligned_state.position.x
+        )
+
+        message.pose.pose.position.y = float(
+            aligned_state.position.y
+        )
+
+        return message
+
+    @staticmethod
     def _cognitive_odometry_message(
         state: CognitiveOdomState,
     ) -> Vector3:
@@ -618,6 +720,28 @@ class NavigationNode(Node):
         self._latest_physical_yaw_rad = (
             physical_yaw_rad
         )
+
+        aligned_agent_odometry = (
+            self._aligned_agent_odometry_message(
+                physical_message=message,
+                aligned_state=state,
+            )
+        )
+
+        self._agent_odom_publisher.publish(
+            aligned_agent_odometry
+        )
+
+        update_nav2_odometry = getattr(
+            self._navigation_motion_executor,
+            "update_odometry",
+            None,
+        )
+
+        if callable(update_nav2_odometry):
+            update_nav2_odometry(
+                aligned_agent_odometry
+            )
 
         # The first physical pose establishes the initial cognitive pose.
         # Subsequent physical odometry must not continuously overwrite
@@ -1258,6 +1382,19 @@ class NavigationNode(Node):
                 self._navigation_motion_executor.step()
             )
 
+        elif self._navigation_motion_backend == "nav2":
+            if self._latest_odometry_state is None:
+                return None
+
+            update = (
+                self._navigation_motion_executor.step(
+                    current_position=(
+                        self._latest_odometry_state
+                        .position
+                    ),
+                )
+            )
+
         else:
             if (
                 self._latest_odometry_state is None
@@ -1283,17 +1420,23 @@ class NavigationNode(Node):
 
         command = update.command
 
-        message = Twist()
-        message.linear.x = (
-            command.linear_speed
-        )
-        message.angular.z = (
-            command.angular_speed
-        )
+        # With Nav2, controller_server owns /cmd_vel.
+        # /cmd_vel remains available here only for panorama rotation and
+        # for the preserved potential-field reference backend.
+        if self._navigation_motion_backend != "nav2":
+            message = Twist()
 
-        self._cmd_vel_publisher.publish(
-            message
-        )
+            message.linear.x = (
+                command.linear_speed
+            )
+
+            message.angular.z = (
+                command.angular_speed
+            )
+
+            self._cmd_vel_publisher.publish(
+                message
+            )
 
         self._latest_navigation_motion_update = (
             update
