@@ -206,7 +206,7 @@ def state_information_gain(
         expected_joint_observation.dot(
             np.log(
                 expected_joint_observation
-                + STATE_INFO_EPSILON
+                + LOG_EPSILON
             )
         )
     )

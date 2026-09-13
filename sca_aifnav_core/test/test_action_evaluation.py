@@ -232,6 +232,101 @@ def test_ambiguous_A_has_zero_information_gain():
     )
 
 
+def test_state_information_gain_matches_aimapp_epsilon_rules():
+    """Match AIMAPP spm_MDP_G's two distinct epsilon rules."""
+    model = BaselineGenerativeModel()
+
+    # Use a fully ambiguous likelihood. Mathematically this carries no
+    # state information, but AIMAPP's two different numerical epsilons
+    # produce a small non-zero value. This makes the test sensitive to
+    # accidentally replacing the final 1e-16 with exp(-16).
+    ambiguous = np.full(
+        (2, 2),
+        0.5,
+    )
+
+    model.sensory_likelihood = (
+        ambiguous.copy()
+    )
+    model.place_likelihood = (
+        ambiguous.copy()
+    )
+
+    belief = np.array(
+        [0.5, 0.5]
+    )
+
+    state_epsilon = np.exp(-16.0)
+    log_epsilon = 1e-16
+
+    expected_joint_observation = np.zeros(
+        4,
+        dtype=float,
+    )
+
+    expected = 0.0
+
+    for state_id, state_probability in enumerate(
+        belief
+    ):
+        if state_probability <= state_epsilon:
+            continue
+
+        joint_given_state = np.kron(
+            model.sensory_likelihood[
+                :,
+                state_id,
+            ],
+            model.place_likelihood[
+                :,
+                state_id,
+            ],
+        )
+
+        expected_joint_observation += (
+            state_probability
+            * joint_given_state
+        )
+
+        # AIMAPP spm_MDP_G uses exp(-16) here.
+        expected += (
+            state_probability
+            * float(
+                joint_given_state.dot(
+                    np.log(
+                        joint_given_state
+                        + state_epsilon
+                    )
+                )
+            )
+        )
+
+    # AIMAPP then calls spm_log_single(qo), whose EPS_VAL is 1e-16.
+    expected -= float(
+        expected_joint_observation.dot(
+            np.log(
+                expected_joint_observation
+                + log_epsilon
+            )
+        )
+    )
+
+    actual = state_information_gain(
+        model=model,
+        state_belief=belief,
+    )
+
+    assert actual == pytest.approx(
+        expected,
+        rel=0.0,
+        abs=1e-15,
+    )
+
+    # Confirm this test is actually capable of detecting the old
+    # all-exp(-16) implementation.
+    assert expected > 1e-7
+
+
 def test_action_score_is_sum_of_enabled_terms():
     model = deterministic_model()
 
