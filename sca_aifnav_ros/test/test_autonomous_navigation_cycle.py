@@ -406,3 +406,157 @@ def test_control_timer_autostarts_once_when_sensors_are_ready(
 
     finally:
         node.destroy_node()
+
+
+def test_goal_reached_stops_before_starting_another_action(
+    ros_context,
+):
+    """Goal completion should stop and wait in the selected goal mode."""
+    node = NavigationNode()
+
+    node._autonomous_navigation_active = True
+
+    node._navigation_motion_executor = (
+        FakeMotionExecutor(
+            is_active=False
+        )
+    )
+
+    decision = SimpleNamespace(
+        next_action_id=None,
+        executed_action_id=None,
+        goal_reached=True,
+    )
+
+    calls = []
+
+    node.process_completed_navigation_cycle = (
+        lambda: decision
+    )
+
+    node.start_planned_navigation_action = (
+        lambda: calls.append(
+            "start_action"
+        ) or True
+    )
+
+    try:
+        result = (
+            node.step_autonomous_navigation()
+        )
+
+        assert result is decision
+        assert calls == []
+
+        assert (
+            node.autonomous_navigation_active
+            is False
+        )
+
+        assert (
+            node._autonomous_navigation_started_once
+            is True
+        )
+
+    finally:
+        node.destroy_node()
+
+
+def test_goal_mode_change_updates_node_decision_cache(
+    ros_context,
+):
+    """Node and bridge should expose the same replanned decision."""
+    node = NavigationNode()
+
+    replacement = SimpleNamespace(
+        next_action_id=4
+    )
+
+    calls = []
+
+    node._navigation_core_bridge.set_goal_navigation = (
+        lambda **kwargs: calls.append(
+            kwargs
+        ) or replacement
+    )
+
+    try:
+        result = node.set_goal_navigation(
+            mode="goal_direct",
+            place_observation=0,
+        )
+
+        assert result is replacement
+
+        assert (
+            node.latest_navigation_decision
+            is replacement
+        )
+
+        assert calls == [
+            {
+                "mode": "goal_direct",
+                "sensory_observation": -1,
+                "place_observation": 0,
+                "preference_weight": 10.0,
+            }
+        ]
+
+    finally:
+        node.destroy_node()
+
+
+def test_exploration_mode_change_updates_node_decision_cache(
+    ros_context,
+):
+    """Explicit exploration selection should synchronize node cache."""
+    node = NavigationNode()
+
+    replacement = SimpleNamespace(
+        next_action_id=7
+    )
+
+    node._navigation_core_bridge.set_exploration_navigation = (
+        lambda: replacement
+    )
+
+    try:
+        result = (
+            node.set_exploration_navigation()
+        )
+
+        assert result is replacement
+
+        assert (
+            node.latest_navigation_decision
+            is replacement
+        )
+
+    finally:
+        node.destroy_node()
+
+
+def test_mode_change_rejected_during_active_physical_action(
+    ros_context,
+):
+    """Do not replace a plan while its physical action is executing."""
+    node = NavigationNode()
+
+    node._navigation_motion_executor = (
+        FakeMotionExecutor(
+            is_active=True
+        )
+    )
+
+    try:
+        with pytest.raises(
+            RuntimeError,
+            match="physical action is active",
+        ):
+            node.set_goal_navigation(
+                mode="goal_direct",
+                place_observation=0,
+            )
+
+    finally:
+        node.destroy_node()

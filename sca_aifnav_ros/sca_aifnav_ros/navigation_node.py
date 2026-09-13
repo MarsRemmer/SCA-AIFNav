@@ -1231,6 +1231,63 @@ class NavigationNode(Node):
 
         return observation
 
+    def set_exploration_navigation(
+        self,
+    ):
+        """Enter exploration mode and synchronize the current plan."""
+        if self.navigation_action_active:
+            raise RuntimeError(
+                "cannot change navigation mode while "
+                "a physical action is active"
+            )
+
+        decision = (
+            self._navigation_core_bridge
+            .set_exploration_navigation()
+        )
+
+        self._latest_navigation_decision = (
+            decision
+        )
+
+        return decision
+
+    def set_goal_navigation(
+        self,
+        mode: str,
+        sensory_observation: int = -1,
+        place_observation: int = -1,
+        preference_weight: float = 10.0,
+    ):
+        """Set a goal mode and synchronize the current plan."""
+        if self.navigation_action_active:
+            raise RuntimeError(
+                "cannot change navigation mode while "
+                "a physical action is active"
+            )
+
+        decision = (
+            self._navigation_core_bridge
+            .set_goal_navigation(
+                mode=mode,
+                sensory_observation=(
+                    sensory_observation
+                ),
+                place_observation=(
+                    place_observation
+                ),
+                preference_weight=(
+                    preference_weight
+                ),
+            )
+        )
+
+        self._latest_navigation_decision = (
+            decision
+        )
+
+        return decision
+
     def process_completed_navigation_cycle(
         self,
     ):
@@ -1662,6 +1719,31 @@ class NavigationNode(Node):
 
         return True
 
+    def _record_goal_completion(
+        self,
+        decision,
+    ) -> bool:
+        """Stop the current autonomous task after reaching its goal."""
+        if not getattr(
+            decision,
+            "goal_reached",
+            False,
+        ):
+            return False
+
+        self._autonomous_navigation_active = False
+
+        # Prevent the control timer from immediately auto-starting
+        # another task. A later task must be started explicitly.
+        self._autonomous_navigation_started_once = True
+
+        self.get_logger().info(
+            "GOAL_REACHED "
+            f"mode={self._navigation_core_bridge.navigation_mode}"
+        )
+
+        return True
+
     def start_autonomous_navigation(
         self,
     ) -> bool:
@@ -1722,8 +1804,21 @@ class NavigationNode(Node):
         # Stop only after the configured number of completed actions
         # have been incorporated into the model, and before launching
         # another physical action.
-        if self._record_experiment_decision(
-            decision
+        experiment_complete = (
+            self._record_experiment_decision(
+                decision
+            )
+        )
+
+        goal_complete = (
+            self._record_goal_completion(
+                decision
+            )
+        )
+
+        if (
+            experiment_complete
+            or goal_complete
         ):
             return decision
 

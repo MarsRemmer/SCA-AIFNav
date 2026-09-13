@@ -34,6 +34,13 @@ from sca_aifnav_core.mcts_planner import (
 from sca_aifnav_core.motion_primitives import (
     BaselineMotionSet,
 )
+from sca_aifnav_core.navigation_mode import (
+    EXPLORE,
+    GOAL_BALANCED,
+    GOAL_DIRECT,
+    infer_navigation_mode,
+    navigation_mode_config,
+)
 from sca_aifnav_core.preference_state import (
     BaselinePreferenceState,
     PreferenceSnapshot,
@@ -118,6 +125,165 @@ class BaselineNavigationCoordinator:
             max_rollout_depth
         )
         self.c_param = c_param
+
+        self._navigation_mode = (
+            infer_navigation_mode(
+                use_utility=(
+                    self.model_interface
+                    .use_utility
+                ),
+                use_state_information_gain=(
+                    self.model_interface
+                    .use_state_information_gain
+                ),
+                use_inductive_inference=(
+                    self.model_interface
+                    .use_inductive_inference
+                ),
+            )
+        )
+
+    @property
+    def navigation_mode(
+        self,
+    ):
+        """Return the currently selected named navigation mode."""
+        return self._navigation_mode
+
+    def set_navigation_mode(
+        self,
+        mode: str,
+    ):
+        """Switch the active-inference terms used by MCTS."""
+        config = navigation_mode_config(
+            mode
+        )
+
+        self.model_interface.use_utility = (
+            config.use_utility
+        )
+
+        self.model_interface.use_state_information_gain = (
+            config.use_state_information_gain
+        )
+
+        self.model_interface.use_inductive_inference = (
+            config.use_inductive_inference
+        )
+
+        self._navigation_mode = config.name
+
+        return config
+
+    def set_exploration_navigation(
+        self,
+    ) -> PreferenceSnapshot:
+        """Enter pure exploration mode and remove any goal preference."""
+        snapshot = self.clear_preference()
+
+        self.set_navigation_mode(
+            EXPLORE
+        )
+
+        return snapshot
+
+    def set_goal_navigation(
+        self,
+        mode: str,
+        sensory_observation: int = -1,
+        place_observation: int = -1,
+        preference_weight: float = 10.0,
+    ) -> PreferenceSnapshot:
+        """Set a known goal and enter one of the two goal modes."""
+        if mode not in (
+            GOAL_DIRECT,
+            GOAL_BALANCED,
+        ):
+            raise ValueError(
+                "goal navigation mode must be "
+                "goal_direct or goal_balanced"
+            )
+
+        if (
+            sensory_observation == -1
+            and place_observation == -1
+        ):
+            raise ValueError(
+                "goal navigation requires "
+                "a preferred observation"
+            )
+
+        if (
+            isinstance(sensory_observation, bool)
+            or not isinstance(
+                sensory_observation,
+                int,
+            )
+        ):
+            raise TypeError(
+                "sensory_observation must be an integer"
+            )
+
+        if (
+            isinstance(place_observation, bool)
+            or not isinstance(
+                place_observation,
+                int,
+            )
+        ):
+            raise TypeError(
+                "place_observation must be an integer"
+            )
+
+        if sensory_observation < -1:
+            raise ValueError(
+                "sensory_observation must be -1 "
+                "or non-negative"
+            )
+
+        if place_observation < -1:
+            raise ValueError(
+                "place_observation must be -1 "
+                "or non-negative"
+            )
+
+        if (
+            sensory_observation
+            >= self.model.sensory_observations
+        ):
+            raise ValueError(
+                "goal sensory observation must already "
+                "exist in the current model"
+            )
+
+        if (
+            place_observation
+            >= self.model.place_observations
+        ):
+            raise ValueError(
+                "goal place observation must already "
+                "exist in the current model"
+            )
+
+        # Set C/Cs first so a goal mode is never entered
+        # without an explicit target preference.
+        snapshot = self.set_preference(
+            sensory_observation=(
+                sensory_observation
+            ),
+            place_observation=(
+                place_observation
+            ),
+            preference_weight=(
+                preference_weight
+            ),
+        )
+
+        self.set_navigation_mode(
+            mode
+        )
+
+        return snapshot
 
     def set_preference(
         self,

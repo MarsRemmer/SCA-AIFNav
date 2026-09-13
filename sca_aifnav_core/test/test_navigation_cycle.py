@@ -16,6 +16,11 @@ from sca_aifnav_core.mcts_planner import (
 from sca_aifnav_core.motion_primitives import (
     BaselineMotionSet,
 )
+from sca_aifnav_core.navigation_mode import (
+    EXPLORE,
+    GOAL_BALANCED,
+    GOAL_DIRECT,
+)
 from sca_aifnav_core.navigation_cycle import (
     BaselineNavigationCoordinator,
     NavigationCycleResult,
@@ -370,3 +375,237 @@ def test_posterior_place_is_used_as_next_planning_root(
         result.planning.root_node.place_id
         == 1
     )
+
+
+def test_navigation_modes_select_expected_terms():
+    (
+        _,
+        _,
+        _,
+        coordinator,
+        _,
+        _,
+    ) = make_case()
+
+    explore = coordinator.set_navigation_mode(
+        EXPLORE
+    )
+
+    assert explore.name == EXPLORE
+    assert coordinator.navigation_mode == EXPLORE
+    assert (
+        coordinator.model_interface.use_utility
+        is False
+    )
+    assert (
+        coordinator
+        .model_interface
+        .use_state_information_gain
+        is True
+    )
+    assert (
+        coordinator
+        .model_interface
+        .use_inductive_inference
+        is False
+    )
+
+    direct = coordinator.set_navigation_mode(
+        GOAL_DIRECT
+    )
+
+    assert direct.name == GOAL_DIRECT
+    assert coordinator.navigation_mode == GOAL_DIRECT
+    assert (
+        coordinator.model_interface.use_utility
+        is True
+    )
+    assert (
+        coordinator
+        .model_interface
+        .use_state_information_gain
+        is False
+    )
+    assert (
+        coordinator
+        .model_interface
+        .use_inductive_inference
+        is True
+    )
+
+    balanced = coordinator.set_navigation_mode(
+        GOAL_BALANCED
+    )
+
+    assert balanced.name == GOAL_BALANCED
+    assert coordinator.navigation_mode == GOAL_BALANCED
+    assert (
+        coordinator.model_interface.use_utility
+        is True
+    )
+    assert (
+        coordinator
+        .model_interface
+        .use_state_information_gain
+        is True
+    )
+    assert (
+        coordinator
+        .model_interface
+        .use_inductive_inference
+        is True
+    )
+
+
+def test_invalid_navigation_mode_is_rejected():
+    (
+        _,
+        _,
+        _,
+        coordinator,
+        _,
+        _,
+    ) = make_case()
+
+    try:
+        coordinator.set_navigation_mode(
+            "unsupported"
+        )
+    except ValueError:
+        pass
+    else:
+        raise AssertionError(
+            "unsupported navigation mode "
+            "must raise ValueError"
+        )
+
+
+def test_goal_direct_sets_known_goal_and_reference_terms():
+    (
+        _,
+        _,
+        _,
+        coordinator,
+        _,
+        _,
+    ) = make_case()
+
+    snapshot = coordinator.set_goal_navigation(
+        mode=GOAL_DIRECT,
+        place_observation=0,
+    )
+
+    assert coordinator.navigation_mode == GOAL_DIRECT
+    assert snapshot.preferred_observations == (
+        -1,
+        0,
+    )
+    assert snapshot.place[0] == 10.0
+
+    interface = coordinator.model_interface
+
+    assert interface.use_utility is True
+    assert interface.use_state_information_gain is False
+    assert interface.use_inductive_inference is True
+
+
+def test_goal_balanced_keeps_state_information_gain():
+    (
+        _,
+        _,
+        _,
+        coordinator,
+        _,
+        _,
+    ) = make_case()
+
+    coordinator.set_goal_navigation(
+        mode=GOAL_BALANCED,
+        place_observation=0,
+    )
+
+    interface = coordinator.model_interface
+
+    assert coordinator.navigation_mode == GOAL_BALANCED
+    assert interface.use_utility is True
+    assert interface.use_state_information_gain is True
+    assert interface.use_inductive_inference is True
+
+
+def test_exploration_mode_clears_goal_preference():
+    (
+        _,
+        _,
+        _,
+        coordinator,
+        _,
+        _,
+    ) = make_case()
+
+    coordinator.set_goal_navigation(
+        mode=GOAL_DIRECT,
+        place_observation=0,
+    )
+
+    snapshot = (
+        coordinator.set_exploration_navigation()
+    )
+
+    assert coordinator.navigation_mode == EXPLORE
+    assert snapshot.preferred_observations == (
+        -1,
+        -1,
+    )
+
+    interface = coordinator.model_interface
+
+    assert interface.use_utility is False
+    assert interface.use_state_information_gain is True
+    assert interface.use_inductive_inference is False
+
+
+def test_goal_navigation_requires_explicit_goal():
+    (
+        _,
+        _,
+        _,
+        coordinator,
+        _,
+        _,
+    ) = make_case()
+
+    try:
+        coordinator.set_goal_navigation(
+            mode=GOAL_DIRECT
+        )
+    except ValueError:
+        pass
+    else:
+        raise AssertionError(
+            "goal mode must require a goal preference"
+        )
+
+
+def test_goal_navigation_rejects_unknown_goal():
+    (
+        model,
+        _,
+        _,
+        coordinator,
+        _,
+        _,
+    ) = make_case()
+
+    try:
+        coordinator.set_goal_navigation(
+            mode=GOAL_DIRECT,
+            sensory_observation=(
+                model.sensory_observations
+            ),
+        )
+    except ValueError:
+        pass
+    else:
+        raise AssertionError(
+            "unknown goals must not be silently created"
+        )

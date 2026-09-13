@@ -7,6 +7,11 @@ import pytest
 from sca_aifnav_core.baseline_odometry import (
     CognitiveOdomState,
 )
+from sca_aifnav_core.navigation_mode import (
+    EXPLORE,
+    GOAL_BALANCED,
+    GOAL_DIRECT,
+)
 from sca_aifnav_core.planar_geometry import (
     Point2D,
 )
@@ -256,6 +261,290 @@ def test_default_bridge_uses_exploration_navigation_mode():
 
     interface = bridge.coordinator.model_interface
 
+    assert bridge.coordinator.navigation_mode == EXPLORE
     assert interface.use_utility is False
     assert interface.use_state_information_gain is True
     assert interface.use_inductive_inference is False
+
+
+def test_bridge_goal_direct_replans_without_learning():
+    """Changing goal mode should replan without adding experience."""
+    bridge = NavigationCoreBridge()
+
+    first = bridge.process_observation(
+        observation()
+    )
+
+    history_size_before = len(
+        bridge.coordinator
+        .learning
+        .history
+        .entries()
+    )
+
+    cycle_count_before = bridge._cycle_count
+
+    decision = bridge.set_goal_navigation(
+        mode=GOAL_DIRECT,
+        place_observation=0,
+    )
+
+    history_size_after = len(
+        bridge.coordinator
+        .learning
+        .history
+        .entries()
+    )
+
+    assert bridge.navigation_mode == GOAL_DIRECT
+
+    assert (
+        bridge.coordinator
+        .preferences
+        .preferred_observations
+        == (-1, 0)
+    )
+
+    assert (
+        bridge.coordinator
+        .preferences
+        .place[0]
+        == pytest.approx(10.0)
+    )
+
+    assert history_size_after == history_size_before
+    assert bridge._cycle_count == cycle_count_before
+
+    assert decision is bridge.latest_decision
+
+    assert (
+        decision.cycle_result.planning
+        is not first.cycle_result.planning
+    )
+
+    assert (
+        bridge.next_action_id
+        == decision.next_action_id
+    )
+
+
+def test_bridge_goal_balanced_selects_balanced_terms():
+    """Balanced goal mode should retain state information gain."""
+    bridge = NavigationCoreBridge()
+
+    bridge.process_observation(
+        observation()
+    )
+
+    bridge.set_goal_navigation(
+        mode=GOAL_BALANCED,
+        place_observation=0,
+    )
+
+    interface = (
+        bridge.coordinator.model_interface
+    )
+
+    assert bridge.navigation_mode == GOAL_BALANCED
+    assert interface.use_utility is True
+    assert interface.use_state_information_gain is True
+    assert interface.use_inductive_inference is True
+
+
+def test_bridge_switch_back_to_explore_clears_goal():
+    """Explicit EXPLORE selection should remove the goal and replan."""
+    bridge = NavigationCoreBridge()
+
+    bridge.process_observation(
+        observation()
+    )
+
+    bridge.set_goal_navigation(
+        mode=GOAL_DIRECT,
+        place_observation=0,
+    )
+
+    decision = (
+        bridge.set_exploration_navigation()
+    )
+
+    assert bridge.navigation_mode == EXPLORE
+
+    assert (
+        bridge.coordinator
+        .preferences
+        .preferred_observations
+        == (-1, -1)
+    )
+
+    interface = (
+        bridge.coordinator.model_interface
+    )
+
+    assert interface.use_utility is False
+    assert interface.use_state_information_gain is True
+    assert interface.use_inductive_inference is False
+
+    assert decision is bridge.latest_decision
+
+    assert (
+        bridge.next_action_id
+        == decision.next_action_id
+    )
+
+
+def test_bridge_can_select_goal_before_initial_observation():
+    """A goal mode may be configured before the first observation."""
+    bridge = NavigationCoreBridge()
+
+    decision = bridge.set_goal_navigation(
+        mode=GOAL_DIRECT,
+        place_observation=0,
+    )
+
+    assert decision is None
+    assert bridge.navigation_mode == GOAL_DIRECT
+
+    first = bridge.process_observation(
+        observation()
+    )
+
+    assert first.is_bootstrap is True
+    assert bridge.navigation_mode == GOAL_DIRECT
+
+    assert (
+        bridge.coordinator
+        .preferences
+        .preferred_observations
+        == (-1, 0)
+    )
+
+
+def test_mode_change_rejected_while_action_awaits_observation():
+    """Do not break the executed-action to observation learning pair."""
+    bridge = NavigationCoreBridge()
+
+    first = bridge.process_observation(
+        observation()
+    )
+
+    bridge.record_executed_action(
+        first.next_action_id
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="awaiting observation",
+    ):
+        bridge.set_goal_navigation(
+            mode=GOAL_DIRECT,
+            place_observation=0,
+        )
+
+    assert bridge.navigation_mode == EXPLORE
+
+    assert (
+        bridge.coordinator
+        .preferences
+        .preferred_observations
+        == (-1, -1)
+    )
+
+
+def test_goal_at_current_place_completes_without_next_action():
+    """A reached goal should complete without launching another action."""
+    bridge = NavigationCoreBridge()
+
+    bridge.set_goal_navigation(
+        mode=GOAL_DIRECT,
+        place_observation=0,
+    )
+
+    decision = bridge.process_observation(
+        observation(
+            place_id=0,
+            sensory_id=0,
+        )
+    )
+
+    assert decision.goal_reached is True
+    assert bridge.goal_reached is True
+    assert decision.next_action_id is None
+    assert bridge.next_action_id is None
+
+    assert bridge.navigation_mode == GOAL_DIRECT
+
+    assert (
+        bridge.coordinator
+        .preferences
+        .preferred_observations
+        == (-1, 0)
+    )
+
+
+def test_explicit_explore_clears_goal_completion_state():
+    """Leaving goal mode should clear completion without clearing learning."""
+    bridge = NavigationCoreBridge()
+
+    bridge.set_goal_navigation(
+        mode=GOAL_DIRECT,
+        place_observation=0,
+    )
+
+    bridge.process_observation(
+        observation()
+    )
+
+    assert bridge.goal_reached is True
+
+    decision = (
+        bridge.set_exploration_navigation()
+    )
+
+    assert bridge.goal_reached is False
+    assert bridge.navigation_mode == EXPLORE
+    assert decision.goal_reached is False
+
+    assert (
+        bridge.coordinator
+        .preferences
+        .preferred_observations
+        == (-1, -1)
+    )
+
+    assert bridge.next_action_id is not None
+
+
+def test_mode_change_replan_clears_executed_action_marker():
+    """Planning-only mode changes must not repeat learned action evidence."""
+    bridge = NavigationCoreBridge()
+
+    first = bridge.process_observation(
+        observation()
+    )
+
+    bridge.record_executed_action(
+        first.next_action_id
+    )
+
+    second = bridge.process_observation(
+        observation()
+    )
+
+    assert (
+        second.executed_action_id
+        == first.next_action_id
+    )
+
+    cycle_count_before = bridge._cycle_count
+
+    replanned = (
+        bridge.set_exploration_navigation()
+    )
+
+    assert replanned.executed_action_id is None
+
+    assert (
+        bridge._cycle_count
+        == cycle_count_before
+    )
