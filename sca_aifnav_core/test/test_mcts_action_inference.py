@@ -380,6 +380,51 @@ def test_stochastic_selection_applies_action_precision():
     )
 
 
+def test_stochastic_selection_matches_aimapp_multinomial_sampling():
+    """Match AIMAPP's multinomial action sampling for the same seed."""
+    root, interface = make_components()
+
+    # Equal rewards produce equal action probabilities, making the
+    # difference between choice() and multinomial() easy to detect.
+    root.children = {
+        3: child_with_average(
+            1,
+            root,
+            0.0,
+        ),
+        7: child_with_average(
+            2,
+            root,
+            0.0,
+        ),
+    }
+
+    np.random.seed(0)
+
+    result = infer_root_action(
+        root_node=root,
+        model_interface=interface,
+        action_selection="stochastic",
+    )
+
+    np.random.seed(0)
+
+    expected_onehot = np.random.multinomial(
+        1,
+        result.selection_probabilities,
+    )
+
+    expected_index = np.where(
+        expected_onehot == 1
+    )[0][0]
+
+    expected_action = result.available_actions[
+        expected_index
+    ]
+
+    assert result.selected_action == expected_action
+
+
 def test_policy_posterior_is_normalized():
     root, interface = make_components()
 

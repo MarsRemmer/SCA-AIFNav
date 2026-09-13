@@ -232,7 +232,7 @@ def _select_action_index(
                 probabilities,
             )
 
-        selected = _random_choice(
+        selected = _select_tied_index(
             tied_indices,
             rng=rng,
         )
@@ -253,12 +253,7 @@ def _select_action_index(
             * alpha
         )
 
-        indices = np.arange(
-            len(probabilities)
-        )
-
-        selected = _random_choice(
-            indices,
+        selected = _sample_multinomial_index(
             probabilities=probabilities,
             rng=rng,
         )
@@ -274,22 +269,50 @@ def _select_action_index(
     )
 
 
-def _random_choice(
+def _select_tied_index(
     values,
-    probabilities=None,
     rng=None,
 ):
-    """Sample one value using either a supplied RNG or NumPy."""
+    """Match AIMAPP select_highest tie sampling."""
     if rng is None:
-        return np.random.choice(
-            values,
-            p=probabilities,
+        selected_position = np.random.choice(
+            len(values)
+        )
+    else:
+        selected_position = rng.choice(
+            len(values)
         )
 
-    return rng.choice(
-        values,
-        p=probabilities,
+    return values[
+        int(selected_position)
+    ]
+
+
+def _sample_multinomial_index(
+    probabilities,
+    rng=None,
+):
+    """Match AIMAPP pymdp.utils.sample."""
+    probabilities = (
+        probabilities.squeeze()
+        if len(probabilities) > 1
+        else probabilities
     )
+
+    if rng is None:
+        sample_onehot = np.random.multinomial(
+            1,
+            probabilities,
+        )
+    else:
+        sample_onehot = rng.multinomial(
+            1,
+            probabilities,
+        )
+
+    return np.where(
+        sample_onehot == 1
+    )[0][0]
 
 
 def _softmax(
