@@ -17,6 +17,31 @@ from sca_aifnav_ros.sensor_snapshot import (
 )
 
 
+class FakeLaserFrameTransform:
+    """Provide a deterministic laser mounting yaw for snapshot tests."""
+
+    def resolve_yaw(
+        self,
+        laser_frame_id,
+    ):
+        """Return zero mounting yaw for a valid scan frame."""
+        if laser_frame_id != "laser":
+            raise ValueError(
+                "unexpected laser frame"
+            )
+
+        return 0.0
+
+
+def attach_zero_laser_tf(
+    node,
+):
+    """Replace live TF lookup with deterministic zero-yaw TF."""
+    node._laser_frame_transform = (
+        FakeLaserFrameTransform()
+    )
+
+
 @pytest.fixture
 def ros_context():
     """Provide a fresh ROS 2 context."""
@@ -64,6 +89,8 @@ def centered_scan(
 ):
     """Create twelve rays centered on the cognitive action sectors."""
     message = LaserScan()
+
+    message.header.frame_id = "laser"
 
     message.angle_min = math.radians(
         15.0
@@ -165,6 +192,10 @@ def test_odometry_and_scan_still_require_image(
     """A snapshot should wait for camera input as well."""
     node = NavigationNode()
 
+    attach_zero_laser_tf(
+        node
+    )
+
     try:
         node._odometry_callback(
             odometry_message(
@@ -196,6 +227,10 @@ def test_complete_sensor_state_creates_snapshot(
 ):
     """One update from every sensor stream should create a snapshot."""
     node = NavigationNode()
+
+    attach_zero_laser_tf(
+        node
+    )
 
     try:
         node._odometry_callback(
@@ -270,6 +305,10 @@ def test_snapshot_remains_frozen_after_new_sensor_updates(
 ):
     """Later ROS updates should not mutate an existing snapshot."""
     node = NavigationNode()
+
+    attach_zero_laser_tf(
+        node
+    )
 
     try:
         node._odometry_callback(
@@ -359,6 +398,10 @@ def test_new_snapshot_uses_latest_sensor_updates(
 ):
     """A later snapshot should capture the newest available sensor state."""
     node = NavigationNode()
+
+    attach_zero_laser_tf(
+        node
+    )
 
     try:
         node._odometry_callback(

@@ -3,6 +3,7 @@
 import copy
 
 import rclpy
+import tf2_ros
 from geometry_msgs.msg import Twist, Vector3
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
@@ -22,6 +23,9 @@ from sca_aifnav_core.spatial_memory import (
 )
 from sca_aifnav_ros.image_adapter import (
     ImageAdapter,
+)
+from sca_aifnav_ros.laser_frame_transform import (
+    LaserFrameTransform,
 )
 from sca_aifnav_ros.navigation_core_bridge import (
     NavigationCoreBridge,
@@ -130,8 +134,8 @@ class NavigationNode(Node):
         )
 
         self.declare_parameter(
-            "laser_yaw_offset_rad",
-            0.0,
+            "base_frame_id",
+            "base_link",
         )
 
         self.declare_parameter(
@@ -196,11 +200,16 @@ class NavigationNode(Node):
             ).value
         )
 
-        self._laser_yaw_offset_rad = float(
+        base_frame_id = str(
             self.get_parameter(
-                "laser_yaw_offset_rad"
+                "base_frame_id"
             ).value
-        )
+        ).strip()
+
+        if not base_frame_id:
+            raise ValueError(
+                "base_frame_id must not be empty"
+            )
 
         panorama_control_period_sec = float(
             self.get_parameter(
@@ -236,6 +245,24 @@ class NavigationNode(Node):
 
         self._obstacle_scan_adapter = (
             ObstacleScanAdapter()
+        )
+
+        self._tf_buffer = (
+            tf2_ros.Buffer()
+        )
+
+        self._tf_listener = (
+            tf2_ros.TransformListener(
+                self._tf_buffer,
+                self,
+            )
+        )
+
+        self._laser_frame_transform = (
+            LaserFrameTransform(
+                tf_buffer=self._tf_buffer,
+                base_frame_id=base_frame_id,
+            )
         )
 
         self._image_adapter = (
@@ -806,6 +833,22 @@ class NavigationNode(Node):
         if self._latest_physical_yaw_rad is None:
             return
 
+        laser_yaw_rad = (
+            self._laser_frame_transform
+            .resolve_yaw(
+                laser_frame_id=(
+                    message.header.frame_id
+                )
+            )
+        )
+
+        if laser_yaw_rad is None:
+            self.get_logger().warning(
+                "TF from base frame to laser scan "
+                "frame is not available; scan ignored"
+            )
+            return
+
         distances = (
             self._obstacle_scan_adapter.aggregate(
                 message,
@@ -815,7 +858,7 @@ class NavigationNode(Node):
                     )
                 ),
                 laser_yaw_offset_rad=(
-                    self._laser_yaw_offset_rad
+                    laser_yaw_rad
                 ),
             )
         )

@@ -13,6 +13,29 @@ from sca_aifnav_ros.navigation_node import (
 )
 
 
+class FakeLaserFrameTransform:
+    """Provide deterministic laser mounting yaw for node tests."""
+
+    def __init__(
+        self,
+        yaw_rad,
+    ):
+        """Store one resolved yaw value."""
+        self.yaw_rad = yaw_rad
+        self.calls = []
+
+    def resolve_yaw(
+        self,
+        laser_frame_id,
+    ):
+        """Record the requested scan frame and return its yaw."""
+        self.calls.append(
+            laser_frame_id
+        )
+
+        return self.yaw_rad
+
+
 class CapturingPublisher:
     """Capture published messages for unit tests."""
 
@@ -61,6 +84,8 @@ def odometry_message(
 def centered_scan():
     """Create one laser ray at the center of each action sector."""
     message = LaserScan()
+
+    message.header.frame_id = "laser"
 
     message.angle_min = math.radians(
         15.0
@@ -113,7 +138,7 @@ def test_node_starts_without_obstacle_distances(
 def test_default_scan_parameters(
     ros_context,
 ):
-    """Default laser topics and yaw offset should be declared."""
+    """Default scan topics and robot base frame should be declared."""
     node = NavigationNode()
 
     try:
@@ -133,9 +158,16 @@ def test_default_scan_parameters(
 
         assert (
             node.get_parameter(
-                "laser_yaw_offset_rad"
+                "base_frame_id"
             ).value
-            == pytest.approx(0.0)
+            == "base_link"
+        )
+
+        assert (
+            node.has_parameter(
+                "laser_yaw_offset_rad"
+            )
+            is False
         )
     finally:
         node.destroy_node()
@@ -180,6 +212,12 @@ def test_scan_after_odometry_is_stored_and_published(
 
     node._obstacle_distance_publisher = (
         publisher
+    )
+
+    node._laser_frame_transform = (
+        FakeLaserFrameTransform(
+            0.0
+        )
     )
 
     try:
@@ -247,6 +285,12 @@ def test_physical_yaw_rotates_scan_into_world_directions(
         publisher
     )
 
+    node._laser_frame_transform = (
+        FakeLaserFrameTransform(
+            0.0
+        )
+    )
+
     try:
         node._odometry_callback(
             odometry_message(
@@ -281,5 +325,110 @@ def test_physical_yaw_rotates_scan_into_world_directions(
         )
 
         assert node.scan_revision == 1
+    finally:
+        node.destroy_node()
+
+
+def test_scan_uses_tf_yaw_from_message_frame(
+    ros_context,
+):
+    """Laser mounting yaw should come from the scan frame TF."""
+    node = NavigationNode()
+
+    publisher = CapturingPublisher()
+
+    node._obstacle_distance_publisher = (
+        publisher
+    )
+
+    resolver = FakeLaserFrameTransform(
+        math.pi / 6.0
+    )
+
+    node._laser_frame_transform = (
+        resolver
+    )
+
+    try:
+        node._odometry_callback(
+            odometry_message(
+                0.0
+            )
+        )
+
+        node._scan_callback(
+            centered_scan()
+        )
+
+        assert resolver.calls == [
+            "laser"
+        ]
+
+        assert (
+            node.latest_obstacle_distances
+            == pytest.approx(
+                [
+                    12.0,
+                    1.0,
+                    2.0,
+                    3.0,
+                    4.0,
+                    5.0,
+                    6.0,
+                    7.0,
+                    8.0,
+                    9.0,
+                    10.0,
+                    11.0,
+                ]
+            )
+        )
+    finally:
+        node.destroy_node()
+
+
+def test_scan_without_tf_is_not_processed(
+    ros_context,
+):
+    """A missing transform should not silently assume zero yaw."""
+    node = NavigationNode()
+
+    publisher = CapturingPublisher()
+
+    node._obstacle_distance_publisher = (
+        publisher
+    )
+
+    resolver = FakeLaserFrameTransform(
+        None
+    )
+
+    node._laser_frame_transform = (
+        resolver
+    )
+
+    try:
+        node._odometry_callback(
+            odometry_message(
+                0.0
+            )
+        )
+
+        node._scan_callback(
+            centered_scan()
+        )
+
+        assert resolver.calls == [
+            "laser"
+        ]
+
+        assert (
+            node.has_obstacle_distances
+            is False
+        )
+
+        assert node.scan_revision == 0
+
+        assert publisher.messages == []
     finally:
         node.destroy_node()
