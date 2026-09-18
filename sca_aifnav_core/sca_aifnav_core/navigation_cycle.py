@@ -79,6 +79,7 @@ class BaselineNavigationCoordinator:
         c_param: float = DEFAULT_MCTS_EXPLORATION,
         use_utility: bool = True,
         use_state_information_gain: bool = False,
+        use_parameter_information_gain: bool = False,
         use_inductive_inference: bool = True,
         inductive_horizon: int = DEFAULT_INDUCTIVE_HORIZON,
     ) -> None:
@@ -112,6 +113,9 @@ class BaselineNavigationCoordinator:
             use_state_information_gain=(
                 use_state_information_gain
             ),
+            use_parameter_information_gain=(
+                use_parameter_information_gain
+            ),
             use_inductive_inference=(
                 use_inductive_inference
             ),
@@ -140,6 +144,10 @@ class BaselineNavigationCoordinator:
                     self.model_interface
                     .use_inductive_inference
                 ),
+                use_parameter_information_gain=(
+                    self.model_interface
+                    .use_parameter_information_gain
+                ),
             )
         )
 
@@ -165,6 +173,10 @@ class BaselineNavigationCoordinator:
 
         self.model_interface.use_state_information_gain = (
             config.use_state_information_gain
+        )
+
+        self.model_interface.use_parameter_information_gain = (
+            config.use_parameter_information_gain
         )
 
         self.model_interface.use_inductive_inference = (

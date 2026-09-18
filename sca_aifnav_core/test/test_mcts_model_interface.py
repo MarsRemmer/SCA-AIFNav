@@ -1,6 +1,7 @@
 """Tests for the baseline-compatible MCTS model interface."""
 
 import numpy as np
+import pytest
 
 from sca_aifnav_core.generative_model import (
     BaselineGenerativeModel,
@@ -334,4 +335,105 @@ def test_interface_evaluation_does_not_change_physical_belief():
     np.testing.assert_allclose(
         model.state_belief,
         before,
+    )
+
+
+def test_parameter_information_gain_uses_aimapp_divisor_and_sign():
+    """AIMAPP subtracts parameter information gain divided by 100."""
+    (
+        interface,
+        model,
+        _,
+        _,
+        _,
+    ) = make_interface(
+        use_utility=False,
+        use_state_information_gain=False,
+    )
+
+    interface.use_parameter_information_gain = False
+
+    model.sensory_likelihood = np.array(
+        [
+            [0.7, 0.7],
+            [0.3, 0.3],
+        ]
+    )
+
+    model.place_likelihood = np.array(
+        [
+            [0.25, 0.25],
+            [0.75, 0.75],
+        ]
+    )
+
+    model.sensory_concentration = np.array(
+        [
+            [1.0, 2.0],
+            [3.0, 4.0],
+        ]
+    )
+
+    model.place_concentration = np.array(
+        [
+            [2.0, 1.0],
+            [1.0, 3.0],
+        ]
+    )
+
+    model.transition_likelihood[
+        :,
+        :,
+        1,
+    ] = np.array(
+        [
+            [0.6, 0.6],
+            [0.4, 0.4],
+        ]
+    )
+
+    model.transition_concentration[
+        :,
+        :,
+        1,
+    ] = np.array(
+        [
+            [2.0, 5.0],
+            [4.0, 1.0],
+        ]
+    )
+
+    current = np.array(
+        [0.55, 0.45]
+    )
+
+    without_parameter_gain = (
+        interface.evaluate_action(
+            current_belief=current,
+            action_id=1,
+        )
+    )
+
+    interface.use_parameter_information_gain = True
+
+    with_parameter_gain = (
+        interface.evaluate_action(
+            current_belief=current,
+            action_id=1,
+        )
+    )
+
+    expected_raw_gain = (
+        1.1456666666666668
+    )
+
+    assert without_parameter_gain.score == pytest.approx(
+        0.0,
+        abs=1e-15,
+    )
+
+    assert with_parameter_gain.score == pytest.approx(
+        -expected_raw_gain / 100.0,
+        rel=0.0,
+        abs=1e-15,
     )

@@ -26,6 +26,9 @@ from sca_aifnav_core.inductive_inference import (
 from sca_aifnav_core.motion_primitives import (
     BaselineMotionSet,
 )
+from sca_aifnav_core.parameter_information_gain import (
+    parameter_information_gain,
+)
 from sca_aifnav_core.preference_state import (
     BaselinePreferenceState,
 )
@@ -45,6 +48,7 @@ class MCTSModelInterface:
         preferences: BaselinePreferenceState,
         use_utility: bool = True,
         use_state_information_gain: bool = True,
+        use_parameter_information_gain: bool = False,
         use_inductive_inference: bool = False,
         inductive_horizon: int = DEFAULT_INDUCTIVE_HORIZON,
     ) -> None:
@@ -59,6 +63,10 @@ class MCTSModelInterface:
 
         self.use_state_information_gain = bool(
             use_state_information_gain
+        )
+
+        self.use_parameter_information_gain = bool(
+            use_parameter_information_gain
         )
 
         self.use_inductive_inference = bool(
@@ -190,13 +198,53 @@ class MCTSModelInterface:
             ),
         )
 
+        evaluation = base_evaluation
+
+        if self.use_parameter_information_gain:
+            raw_parameter_gain = (
+                parameter_information_gain(
+                    observation_concentrations=(
+                        self.model.sensory_concentration,
+                        self.model.place_concentration,
+                    ),
+                    expected_observations=(
+                        base_evaluation
+                        .expected_observations
+                        .sensory,
+                        base_evaluation
+                        .expected_observations
+                        .place,
+                    ),
+                    transition_concentration=(
+                        self.model
+                        .transition_concentration
+                    ),
+                    predicted_state=(
+                        base_evaluation
+                        .predicted_state
+                    ),
+                    previous_state=current_belief,
+                    action_id=action_id,
+                )
+            )
+
+            # AIMAPP MCTS divides the raw parameter information gain
+            # by 100 and subtracts it from G.
+            evaluation = replace(
+                evaluation,
+                score=(
+                    evaluation.score
+                    - raw_parameter_gain / 100.0
+                ),
+            )
+
         if not self.use_inductive_inference:
-            return base_evaluation
+            return evaluation
 
         bonus = inductive_bonus(
             current_belief=current_belief,
             predicted_belief=(
-                base_evaluation.predicted_state
+                evaluation.predicted_state
             ),
             transition_likelihood=(
                 self.model.transition_likelihood
@@ -210,9 +258,9 @@ class MCTSModelInterface:
         )
 
         return replace(
-            base_evaluation,
+            evaluation,
             score=(
-                base_evaluation.score
+                evaluation.score
                 + bonus
             ),
         )

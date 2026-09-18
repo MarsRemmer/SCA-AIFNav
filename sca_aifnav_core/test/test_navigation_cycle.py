@@ -609,3 +609,35 @@ def test_goal_navigation_rejects_unknown_goal():
         raise AssertionError(
             "unknown goals must not be silently created"
         )
+
+
+def test_named_navigation_modes_keep_parameter_information_gain_disabled():
+    """Keep parameter information gain disabled in every named mode."""
+    (
+        _,
+        _,
+        _,
+        coordinator,
+        _,
+        _,
+    ) = make_case()
+
+    for mode in (
+        EXPLORE,
+        GOAL_DIRECT,
+        GOAL_BALANCED,
+    ):
+        # Deliberately enable it first. Selecting any named mode must
+        # restore the fixed mode configuration and turn it back off.
+        coordinator.model_interface.use_parameter_information_gain = True
+
+        coordinator.set_navigation_mode(
+            mode
+        )
+
+        assert (
+            coordinator
+            .model_interface
+            .use_parameter_information_gain
+            is False
+        )

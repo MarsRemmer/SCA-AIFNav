@@ -15,6 +15,7 @@ class NavigationModeConfig:
     name: str
     use_utility: bool
     use_state_information_gain: bool
+    use_parameter_information_gain: bool
     use_inductive_inference: bool
 
 
@@ -23,18 +24,21 @@ _MODE_CONFIGS = {
         name=EXPLORE,
         use_utility=False,
         use_state_information_gain=True,
+        use_parameter_information_gain=False,
         use_inductive_inference=False,
     ),
     GOAL_DIRECT: NavigationModeConfig(
         name=GOAL_DIRECT,
         use_utility=True,
         use_state_information_gain=False,
+        use_parameter_information_gain=False,
         use_inductive_inference=True,
     ),
     GOAL_BALANCED: NavigationModeConfig(
         name=GOAL_BALANCED,
         use_utility=True,
         use_state_information_gain=True,
+        use_parameter_information_gain=False,
         use_inductive_inference=True,
     ),
 }
@@ -64,6 +68,7 @@ def infer_navigation_mode(
     use_utility: bool,
     use_state_information_gain: bool,
     use_inductive_inference: bool,
+    use_parameter_information_gain: bool = False,
 ):
     """Return the named mode matching one set of evaluation switches."""
     for mode, config in _MODE_CONFIGS.items():
@@ -72,6 +77,8 @@ def infer_navigation_mode(
             == bool(use_utility)
             and config.use_state_information_gain
             == bool(use_state_information_gain)
+            and config.use_parameter_information_gain
+            == bool(use_parameter_information_gain)
             and config.use_inductive_inference
             == bool(use_inductive_inference)
         ):
