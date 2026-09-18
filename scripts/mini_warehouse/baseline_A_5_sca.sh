@@ -3,13 +3,16 @@
 # SCA-AIFNav Mini Warehouse
 # Baseline reproduction - Terminal 5
 #
-# Shared with AIMAPP:
+# Shared experiment infrastructure:
 #   A1 Gazebo server
 #   A2 Gazebo GUI
 #   A3 waffle_pi_plus + robot_state_publisher
-#   A4 AIMAPP Nav2 stack
 #
-# This script starts only the SCA-AIFNav baseline agent.
+# SCA-specific execution:
+#   S4 odom-only Nav2 stack
+#   S5 this SCA-AIFNav navigation node
+#
+# This script starts only the SCA-AIFNav agent.
 # The high-level algorithm remains AIMAPP-aligned.
 # Translational navigation is delegated to Nav2.
 
@@ -94,5 +97,5 @@ ros2 run sca_aifnav_ros navigation_node \
     -p camera_topic:=/camera_front/image_raw \
     -p left_camera_topic:=/camera_left/image_raw \
     -p right_camera_topic:=/camera_right/image_raw \
-    -p cmd_vel_topic:=/cmd_vel \
+    -p cmd_vel_topic:=/cmd_vel_nav \
     2>&1 | tee "$RUN_DIR/sca_agent.log"
