@@ -107,6 +107,40 @@ def generate_launch_description():
         }.items(),
     )
 
+    base_link_tf = Node(
+        package="tf2_ros",
+        executable="static_transform_publisher",
+        name="base_footprint_to_base_link",
+        output="screen",
+        arguments=[
+            "--x", "0.0",
+            "--y", "0.0",
+            "--z", "0.010",
+            "--roll", "0.0",
+            "--pitch", "0.0",
+            "--yaw", "0.0",
+            "--frame-id", "base_footprint",
+            "--child-frame-id", "base_link",
+        ],
+    )
+
+    laser_tf = Node(
+        package="tf2_ros",
+        executable="static_transform_publisher",
+        name="base_link_to_base_scan",
+        output="screen",
+        arguments=[
+            "--x", "-0.064",
+            "--y", "0.0",
+            "--z", "0.121",
+            "--roll", "0.0",
+            "--pitch", "0.0",
+            "--yaw", "0.0",
+            "--frame-id", "base_link",
+            "--child-frame-id", "base_scan",
+        ],
+    )
+
     spawn_robot = Node(
         package="gazebo_ros",
         executable="spawn_entity.py",
@@ -174,6 +208,8 @@ def generate_launch_description():
                 ),
             ),
             gazebo,
+            base_link_tf,
+            laser_tf,
             spawn_robot,
         ]
     )

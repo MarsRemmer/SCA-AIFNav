@@ -16,6 +16,9 @@ from sca_aifnav_core.planar_geometry import (
 from sca_aifnav_ros.navigation_core_bridge import (
     NavigationActionTarget,
 )
+from sca_aifnav_ros.navigation_motion_executor import (
+    NavigationMotionExecutor,
+)
 from sca_aifnav_ros.navigation_node import (
     NavigationNode,
 )
@@ -146,6 +149,11 @@ def initialize_cognitive_origin(
     node,
 ):
     """Represent the already-established initial cognitive location."""
+    node._navigation_motion_backend = "potential_field"
+    node._navigation_motion_executor = (
+        NavigationMotionExecutor()
+    )
+
     state = node._internal_cognitive_tracker.reset(
         position=Point2D(
             0.0,

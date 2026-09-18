@@ -120,7 +120,7 @@ class NavigationNode(Node):
 
         self.declare_parameter(
             "navigation_motion_backend",
-            "potential_field",
+            "nav2",
         )
 
         self.declare_parameter(
@@ -787,17 +787,6 @@ class NavigationNode(Node):
             aligned_agent_odometry
         )
 
-        update_nav2_odometry = getattr(
-            self._navigation_motion_executor,
-            "update_odometry",
-            None,
-        )
-
-        if callable(update_nav2_odometry):
-            update_nav2_odometry(
-                aligned_agent_odometry
-            )
-
         # The first physical pose establishes the initial cognitive pose.
         # Subsequent physical odometry must not continuously overwrite
         # the internally predicted cognitive position.
@@ -1440,6 +1429,40 @@ class NavigationNode(Node):
         self._pre_action_cognitive_state = None
         self._pre_action_cognitive_place_id = None
 
+    def _start_navigation_motion_target(
+        self,
+        target,
+    ) -> None:
+        """
+        Start one physical motion target through the configured backend.
+
+        SCA targets remain in the cognitive coordinate frame.  Nav2
+        receives the equivalent target expressed in the unchanged
+        physical ROS odom frame.
+        """
+        if (
+            self._navigation_motion_backend == "nav2"
+            and not target.is_stationary
+        ):
+            physical_target_position = (
+                self._odometry_adapter.physical_position(
+                    target.target_position
+                )
+            )
+
+            self._navigation_motion_executor.start(
+                target,
+                physical_target_position=(
+                    physical_target_position
+                ),
+            )
+
+            return
+
+        self._navigation_motion_executor.start(
+            target
+        )
+
     def start_planned_navigation_action(
         self,
     ) -> bool:
@@ -1485,7 +1508,7 @@ class NavigationNode(Node):
             target.target_place_id
         )
 
-        self._navigation_motion_executor.start(
+        self._start_navigation_motion_target(
             target
         )
 
@@ -1706,7 +1729,7 @@ class NavigationNode(Node):
             is_stationary=False,
         )
 
-        self._navigation_motion_executor.start(
+        self._start_navigation_motion_target(
             return_target
         )
 

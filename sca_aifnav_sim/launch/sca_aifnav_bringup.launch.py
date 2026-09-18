@@ -1,4 +1,4 @@
-"""Launch the complete SCA-AIFNav simulation and navigation stack."""
+"""Launch Gazebo, odom-only Nav2, and the SCA-AIFNav navigation node."""
 
 import os
 
@@ -20,9 +20,19 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
-    """Create the complete simulation and autonomous navigation stack."""
+    """Create the complete SCA-AIFNav simulation and navigation stack."""
     sim_share = get_package_share_directory(
         "sca_aifnav_sim"
+    )
+
+    nav2_share = get_package_share_directory(
+        "nav2_bringup"
+    )
+
+    nav2_params = os.path.join(
+        sim_share,
+        "config",
+        "nav2_odom_params.yaml",
     )
 
     world = LaunchConfiguration(
@@ -45,8 +55,8 @@ def generate_launch_description():
         "yaw"
     )
 
-    laser_yaw_offset_rad = LaunchConfiguration(
-        "laser_yaw_offset_rad"
+    base_frame_id = LaunchConfiguration(
+        "base_frame_id"
     )
 
     panorama_control_period_sec = LaunchConfiguration(
@@ -70,6 +80,23 @@ def generate_launch_description():
         }.items(),
     )
 
+    nav2_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(
+                nav2_share,
+                "launch",
+                "navigation_launch.py",
+            )
+        ),
+        launch_arguments={
+            "use_sim_time": "true",
+            "autostart": "true",
+            "params_file": nav2_params,
+            "use_composition": "False",
+            "use_respawn": "False",
+        }.items(),
+    )
+
     navigation_node = Node(
         package="sca_aifnav_ros",
         executable="navigation_node",
@@ -77,13 +104,25 @@ def generate_launch_description():
         output="screen",
         parameters=[
             {
+                "use_sim_time": True,
                 "odom_topic": "/odom",
+                "agent_odom_topic": "/agent/odom",
                 "scan_topic": "/scan",
                 "camera_topic": "/camera_front/image_raw",
                 "left_camera_topic": "/camera_left/image_raw",
                 "right_camera_topic": "/camera_right/image_raw",
-                "cmd_vel_topic": "/cmd_vel",
-                "laser_yaw_offset_rad": laser_yaw_offset_rad,
+
+                # With Nav2, both controller_server and SCA panorama
+                # commands feed the Nav2 velocity smoother.  The smoother
+                # is the only component that publishes final /cmd_vel.
+                "cmd_vel_topic": "/cmd_vel_nav",
+
+                "navigation_motion_backend": "nav2",
+
+                "base_frame_id": (
+                    base_frame_id
+                ),
+
                 "panorama_control_period_sec": (
                     panorama_control_period_sec
                 ),
@@ -135,10 +174,10 @@ def generate_launch_description():
                 ),
             ),
             DeclareLaunchArgument(
-                "laser_yaw_offset_rad",
-                default_value="0.0",
+                "base_frame_id",
+                default_value="base_link",
                 description=(
-                    "Yaw offset from robot frame to laser frame."
+                    "Robot base frame used for sensor TF lookup."
                 ),
             ),
             DeclareLaunchArgument(
@@ -149,6 +188,7 @@ def generate_launch_description():
                 ),
             ),
             world_launch,
+            nav2_launch,
             navigation_node,
         ]
     )

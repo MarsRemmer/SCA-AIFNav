@@ -157,6 +157,47 @@ class OdometryAdapter:
             travel_heading_rad=0.0,
         )
 
+    def physical_position(
+        self,
+        cognitive_position: Point2D,
+    ) -> Point2D:
+        """
+        Convert one cognitive-frame position back to raw ROS odometry.
+
+        Cognitive positions are startup-relative physical odometry plus
+        the current posterior-alignment translation.  Nav2 must receive
+        targets in the unchanged physical odometry frame, so this method
+        applies the exact inverse transform.
+        """
+        if not isinstance(
+            cognitive_position,
+            Point2D,
+        ):
+            raise TypeError(
+                "cognitive_position must be a Point2D"
+            )
+
+        if (
+            not self._initialized
+            or self._origin_position is None
+        ):
+            raise RuntimeError(
+                "odometry adapter is not initialized"
+            )
+
+        return Point2D(
+            x=(
+                cognitive_position.x
+                - self._alignment_offset.x
+                + self._origin_position.x
+            ),
+            y=(
+                cognitive_position.y
+                - self._alignment_offset.y
+                + self._origin_position.y
+            ),
+        )
+
     def _relative_position(
         self,
         raw_position: Point2D,

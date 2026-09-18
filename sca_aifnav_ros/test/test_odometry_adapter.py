@@ -450,3 +450,58 @@ def test_reset_clears_runtime_alignment():
         0.0,
         0.0,
     )
+
+
+def test_cognitive_position_converts_back_to_physical_odometry():
+    """A cognitive target should map back into the physical odom frame."""
+    adapter = OdometryAdapter()
+
+    first = Odometry()
+    first.pose.pose.position.x = 5.0
+    first.pose.pose.position.y = -2.0
+
+    adapter.update(first)
+
+    physical = adapter.physical_position(
+        Point2D(
+            1.5,
+            -0.5,
+        )
+    )
+
+    assert physical.x == pytest.approx(6.5)
+    assert physical.y == pytest.approx(-2.5)
+
+
+def test_cognitive_to_physical_respects_runtime_realignment():
+    """Posterior cognitive realignment must not move the physical frame."""
+    adapter = OdometryAdapter()
+
+    first = Odometry()
+    first.pose.pose.position.x = 5.0
+    first.pose.pose.position.y = -2.0
+    adapter.update(first)
+
+    moved = Odometry()
+    moved.pose.pose.position.x = 6.0
+    moved.pose.pose.position.y = -2.0
+    adapter.update(moved)
+
+    adapter.realign(
+        Point2D(
+            2.0,
+            0.0,
+        )
+    )
+
+    # Cognitive x=3 is one metre ahead of cognitive x=2.
+    # Physical robot was at x=6, therefore the target must be x=7.
+    physical = adapter.physical_position(
+        Point2D(
+            3.0,
+            0.0,
+        )
+    )
+
+    assert physical.x == pytest.approx(7.0)
+    assert physical.y == pytest.approx(-2.0)

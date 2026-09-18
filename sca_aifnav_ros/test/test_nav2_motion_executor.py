@@ -5,22 +5,11 @@ from types import SimpleNamespace
 import pytest
 import rclpy
 from action_msgs.msg import GoalStatus
-from nav_msgs.msg import Odometry
 from rclpy.node import Node
 
 from sca_aifnav_core.planar_geometry import Point2D
 from sca_aifnav_ros.navigation_core_bridge import NavigationActionTarget
 from sca_aifnav_ros.nav2_motion_executor import Nav2MotionExecutor
-
-
-class CapturePublisher:
-    """Capture published ROS messages."""
-
-    def __init__(self):
-        self.messages = []
-
-    def publish(self, message):
-        self.messages.append(message)
 
 
 class ImmediateFuture:
@@ -118,26 +107,14 @@ def target(
     )
 
 
-def odometry(x=0.0, y=0.0):
-    message = Odometry()
-
-    message.pose.pose.position.x = float(x)
-    message.pose.pose.position.y = float(y)
-    message.pose.pose.orientation.w = 1.0
-
-    return message
-
-
 def test_stationary_action_does_not_call_nav2(
     ros_node,
 ):
     action_client = FakeActionClient()
-    publisher = CapturePublisher()
 
     executor = Nav2MotionExecutor(
         node=ros_node,
         action_client=action_client,
-        initial_pose_publisher=publisher,
     )
 
     executor.start(
@@ -155,40 +132,69 @@ def test_stationary_action_does_not_call_nav2(
     assert action_client.goals == []
 
 
-def test_directional_target_is_sent_as_map_xy(
+def test_directional_target_is_sent_as_physical_odom_xy(
     ros_node,
 ):
+    """Nav2 should receive the physical target in the odom frame."""
     action_client = FakeActionClient()
-    publisher = CapturePublisher()
 
     executor = Nav2MotionExecutor(
         node=ros_node,
         action_client=action_client,
-        initial_pose_publisher=publisher,
     )
 
-    executor.update_odometry(
-        odometry()
+    cognitive_target = target(
+        x=1.25,
+        y=-0.75,
     )
 
     executor.start(
-        target(
-            x=1.25,
-            y=-0.75,
-        )
+        cognitive_target,
+        physical_target_position=Point2D(
+            6.25,
+            -2.75,
+        ),
     )
 
     assert len(action_client.goals) == 1
 
     goal = action_client.goals[0]
 
-    assert goal.pose.header.frame_id == "map"
-    assert goal.pose.pose.position.x == pytest.approx(
-        1.25
+    assert goal.pose.header.frame_id == "odom"
+
+    assert (
+        goal.pose.pose.position.x
+        == pytest.approx(6.25)
     )
-    assert goal.pose.pose.position.y == pytest.approx(
-        -0.75
+
+    assert (
+        goal.pose.pose.position.y
+        == pytest.approx(-2.75)
     )
+
+    # The active SCA target remains cognitive.
+    assert (
+        executor.active_target
+        is cognitive_target
+    )
+
+
+def test_directional_target_requires_physical_odom_position(
+    ros_node,
+):
+    """A Nav2 action must not silently treat cognitive XY as odom XY."""
+    executor = Nav2MotionExecutor(
+        node=ros_node,
+        action_client=FakeActionClient(),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="physical_target_position",
+    ):
+        executor.start(
+            target()
+        )
 
 
 def test_nav2_success_completes_action(
@@ -199,15 +205,14 @@ def test_nav2_success_completes_action(
         action_client=FakeActionClient(
             GoalStatus.STATUS_SUCCEEDED
         ),
-        initial_pose_publisher=CapturePublisher(),
-    )
-
-    executor.update_odometry(
-        odometry()
     )
 
     executor.start(
-        target()
+        target(),
+        physical_target_position=Point2D(
+            1.0,
+            0.0,
+        ),
     )
 
     update = executor.step(
@@ -231,18 +236,17 @@ def test_nav2_abort_far_from_goal_fails_action(
         action_client=FakeActionClient(
             GoalStatus.STATUS_ABORTED
         ),
-        initial_pose_publisher=CapturePublisher(),
-    )
-
-    executor.update_odometry(
-        odometry()
     )
 
     executor.start(
         target(
             x=1.0,
             y=0.0,
-        )
+        ),
+        physical_target_position=Point2D(
+            1.0,
+            0.0,
+        ),
     )
 
     update = executor.step(
@@ -265,19 +269,18 @@ def test_nav2_abort_inside_one_third_radius_is_accepted(
         action_client=FakeActionClient(
             GoalStatus.STATUS_ABORTED
         ),
-        initial_pose_publisher=CapturePublisher(),
         influence_radius=0.5,
-    )
-
-    executor.update_odometry(
-        odometry()
     )
 
     executor.start(
         target(
             x=0.15,
             y=0.15,
-        )
+        ),
+        physical_target_position=Point2D(
+            0.15,
+            0.15,
+        ),
     )
 
     update = executor.step(
@@ -290,40 +293,3 @@ def test_nav2_abort_inside_one_third_radius_is_accepted(
     assert update.completed_action_id == 0
     assert update.failed_action_id is None
     assert update.command.goal_reached is True
-
-
-def test_initial_pose_is_published_from_odometry(
-    ros_node,
-):
-    publisher = CapturePublisher()
-
-    executor = Nav2MotionExecutor(
-        node=ros_node,
-        action_client=FakeActionClient(),
-        initial_pose_publisher=publisher,
-    )
-
-    executor.update_odometry(
-        odometry(
-            x=0.4,
-            y=-0.2,
-        )
-    )
-
-    executor.start(
-        target()
-    )
-
-    assert len(publisher.messages) >= 1
-
-    message = publisher.messages[0]
-
-    assert message.header.frame_id == "map"
-    assert (
-        message.pose.pose.position.x
-        == pytest.approx(0.4)
-    )
-    assert (
-        message.pose.pose.position.y
-        == pytest.approx(-0.2)
-    )

@@ -358,6 +358,7 @@ def test_failed_action_records_failure_before_cognitive_pose_rollback(
 ):
     """Record failure evidence before cognitive pose rollback."""
     node = NavigationNode()
+    node._navigation_motion_backend = "potential_field"
 
     try:
         node._odometry_callback(
@@ -580,6 +581,7 @@ def test_failed_action_returns_then_replans_from_source(
 ):
     """Failure should rollback, return physically, and then replan."""
     node = NavigationNode()
+    node._navigation_motion_backend = "potential_field"
 
     try:
         node._odometry_callback(

@@ -3,16 +3,8 @@
 from typing import Optional
 
 from action_msgs.msg import GoalStatus
-from geometry_msgs.msg import PoseWithCovarianceStamped
 from nav2_msgs.action import NavigateToPose
-from nav_msgs.msg import Odometry
 from rclpy.action import ActionClient
-from rclpy.qos import (
-    QoSDurabilityPolicy,
-    QoSHistoryPolicy,
-    QoSProfile,
-    QoSReliabilityPolicy,
-)
 
 from sca_aifnav_core.planar_geometry import Point2D
 from sca_aifnav_ros.goal_motion_controller import GoalMotionCommand
@@ -43,7 +35,6 @@ class Nav2MotionExecutor:
         action_name: str = "/navigate_to_pose",
         influence_radius: float = DEFAULT_INFLUENCE_RADIUS,
         action_client=None,
-        initial_pose_publisher=None,
     ) -> None:
         """Create the Nav2 motion executor."""
         if influence_radius <= 0.0:
@@ -65,28 +56,15 @@ class Nav2MotionExecutor:
 
         self._action_client = action_client
 
-        if initial_pose_publisher is None:
-            qos_profile = QoSProfile(
-                history=QoSHistoryPolicy.KEEP_LAST,
-                depth=10,
-                reliability=QoSReliabilityPolicy.RELIABLE,
-                durability=QoSDurabilityPolicy.VOLATILE,
-            )
-
-            initial_pose_publisher = (
-                node.create_publisher(
-                    PoseWithCovarianceStamped,
-                    "/initialpose",
-                    qos_profile,
-                )
-            )
-
-        self._initial_pose_publisher = (
-            initial_pose_publisher
-        )
-
         self._active_target: Optional[
             NavigationActionTarget
+        ] = None
+
+        # Physical Nav2 goal expressed in the ROS odom frame.
+        # This is deliberately kept separate from _active_target,
+        # whose target_position remains in the SCA cognitive frame.
+        self._physical_target_position: Optional[
+            Point2D
         ] = None
 
         self._goal_handle = None
@@ -95,9 +73,6 @@ class Nav2MotionExecutor:
 
         self._terminal_status = None
         self._feedback_position = None
-
-        self._latest_odometry = None
-        self._initial_pose_published = False
 
     @property
     def is_active(self) -> bool:
@@ -109,26 +84,18 @@ class Nav2MotionExecutor:
         """Return the active cognitive target."""
         return self._active_target
 
-    def update_odometry(
-        self,
-        message: Odometry,
-    ) -> None:
-        """Cache the latest physical odometry for Nav2 initialisation."""
-        if not isinstance(
-            message,
-            Odometry,
-        ):
-            raise TypeError(
-                "message must be an Odometry"
-            )
-
-        self._latest_odometry = message
-
     def start(
         self,
         target: NavigationActionTarget,
+        physical_target_position: Point2D | None = None,
     ) -> None:
-        """Start one planned physical action."""
+        """
+        Start one planned physical action.
+
+        target remains expressed in the SCA cognitive frame.
+        physical_target_position is the corresponding ROS odom-frame
+        position sent to Nav2.
+        """
         if not isinstance(
             target,
             NavigationActionTarget,
@@ -142,7 +109,24 @@ class Nav2MotionExecutor:
                 "a navigation action is already active"
             )
 
+        if (
+            not target.is_stationary
+            and not isinstance(
+                physical_target_position,
+                Point2D,
+            )
+        ):
+            raise ValueError(
+                "physical_target_position must be "
+                "a Point2D for directional actions"
+            )
+
         self._active_target = target
+
+        self._physical_target_position = (
+            physical_target_position
+        )
+
         self._goal_handle = None
         self._goal_future = None
         self._result_future = None
@@ -152,11 +136,6 @@ class Nav2MotionExecutor:
         # STAY is handled locally and never sent to Nav2.
         if target.is_stationary:
             return
-
-        # AIMAPP initialises Nav2 localization from odometry.
-        # Publish before the first goal whenever odometry is available.
-        if not self._initial_pose_published:
-            self._publish_initial_pose()
 
         if not self._action_client.wait_for_server(
             timeout_sec=5.0
@@ -170,7 +149,7 @@ class Nav2MotionExecutor:
 
         goal = NavigateToPose.Goal()
 
-        goal.pose.header.frame_id = "map"
+        goal.pose.header.frame_id = "odom"
         goal.pose.header.stamp = (
             self.node.get_clock()
             .now()
@@ -178,19 +157,21 @@ class Nav2MotionExecutor:
         )
 
         goal.pose.pose.position.x = float(
-            target.target_position.x
+            physical_target_position.x
         )
 
         goal.pose.pose.position.y = float(
-            target.target_position.y
+            physical_target_position.y
         )
 
-        # AIMAPP's Nav2 client supplies only the target position.
-        # Keep the same position-goal semantics here.
+        # Use a valid neutral quaternion. Nav2 receives position goals;
+        # final orientation is intentionally not part of the SCA action.
+        goal.pose.pose.orientation.w = 1.0
+
         self.node.get_logger().info(
-            "Sending Nav2 goal "
-            f"x={target.target_position.x:.3f}, "
-            f"y={target.target_position.y:.3f}, "
+            "Sending Nav2 odom goal "
+            f"x={physical_target_position.x:.3f}, "
+            f"y={physical_target_position.y:.3f}, "
             f"action={target.action_id}"
         )
 
@@ -347,10 +328,6 @@ class Nav2MotionExecutor:
             "Nav2 goal accepted"
         )
 
-        # The AIMAPP Nav2 client refreshes /initialpose around goal
-        # acceptance. Preserve that observable behaviour.
-        self._publish_initial_pose()
-
         self._result_future = (
             goal_handle.get_result_async()
         )
@@ -406,66 +383,6 @@ class Nav2MotionExecutor:
             ),
         )
 
-    def _publish_initial_pose(self) -> bool:
-        """Publish AIMAPP-compatible Nav2 initial localisation."""
-        odometry = self._latest_odometry
-
-        if odometry is None:
-            return False
-
-        message = PoseWithCovarianceStamped()
-
-        message.header.frame_id = "map"
-        message.header.stamp = (
-            odometry.header.stamp
-        )
-
-        message.pose.pose.position.x = float(
-            odometry.pose.pose.position.x
-        )
-
-        message.pose.pose.position.y = float(
-            odometry.pose.pose.position.y
-        )
-
-        message.pose.pose.position.z = float(
-            odometry.pose.pose.position.z
-        )
-
-        message.pose.pose.orientation.x = float(
-            odometry.pose.pose.orientation.x
-        )
-
-        message.pose.pose.orientation.y = float(
-            odometry.pose.pose.orientation.y
-        )
-
-        message.pose.pose.orientation.z = float(
-            odometry.pose.pose.orientation.z
-        )
-
-        message.pose.pose.orientation.w = float(
-            odometry.pose.pose.orientation.w
-        )
-
-        message.pose.covariance = [
-            0.25, 0.0, 0.0, 0.0, 0.0, 0.0,
-            0.0, 0.25, 0.0, 0.0, 0.0, 0.0,
-            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-            0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-            0.0, 0.0, 0.0, 0.0, 0.0,
-            0.06853892,
-        ]
-
-        self._initial_pose_publisher.publish(
-            message
-        )
-
-        self._initial_pose_published = True
-
-        return True
-
     def _failure_within_goal_tolerance(
         self,
         current_position,
@@ -476,15 +393,28 @@ class Nav2MotionExecutor:
         if target is None:
             return False
 
-        # AIMAPP uses the latest Nav2 feedback pose when available.
-        position = self._feedback_position
-
-        if position is None:
+        # Nav2 feedback is expressed in the physical odom frame.
+        # Without feedback, current_position is the cognitive fallback.
+        if self._feedback_position is not None:
+            position = self._feedback_position
+            goal_position = (
+                self._physical_target_position
+            )
+        else:
             position = current_position
+            goal_position = (
+                target.target_position
+            )
 
-        if not isinstance(
-            position,
-            Point2D,
+        if (
+            not isinstance(
+                position,
+                Point2D,
+            )
+            or not isinstance(
+                goal_position,
+                Point2D,
+            )
         ):
             return False
 
@@ -496,12 +426,12 @@ class Nav2MotionExecutor:
         return (
             abs(
                 position.x
-                - target.target_position.x
+                - goal_position.x
             )
             <= tolerance
             and abs(
                 position.y
-                - target.target_position.y
+                - goal_position.y
             )
             <= tolerance
         )
@@ -516,24 +446,37 @@ class Nav2MotionExecutor:
         if target is None:
             return 0.0
 
-        position = self._feedback_position
-
-        if position is None:
+        if self._feedback_position is not None:
+            position = self._feedback_position
+            goal_position = (
+                self._physical_target_position
+            )
+        else:
             position = current_position
+            goal_position = (
+                target.target_position
+            )
 
-        if not isinstance(
-            position,
-            Point2D,
+        if (
+            not isinstance(
+                position,
+                Point2D,
+            )
+            or not isinstance(
+                goal_position,
+                Point2D,
+            )
         ):
             return 0.0
 
         return position.distance_to(
-            target.target_position
+            goal_position
         )
 
     def _finish_active_action(self) -> None:
         """Clear one completed Nav2 action."""
         self._active_target = None
+        self._physical_target_position = None
         self._goal_handle = None
         self._goal_future = None
         self._result_future = None
