@@ -1766,6 +1766,12 @@ class NavigationNode(Node):
 
         self._experiment_completed_actions += 1
 
+        self.get_logger().info(
+            "EXPERIMENT_PROGRESS "
+            f"actions={self._experiment_completed_actions} "
+            f"limit={self._experiment_action_limit}"
+        )
+
         if self._experiment_action_limit <= 0:
             return False
 
